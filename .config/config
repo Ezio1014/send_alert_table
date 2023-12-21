@@ -1,0 +1,20 @@
+[fileDate]
+days = 0
+
+[DB_209]
+host = DBHost
+port = DBPort
+user = DBAccount
+password = DBPassword
+charset = utf8
+database = DBDatabase
+
+[mailSender_formal]
+Sender = yourMail
+acc_in = yourMail
+pwd_in = yourPassword
+
+[mailSender_test]
+Sender = yourMail
+acc_in = yourMail
+pwd_in = yourPassword

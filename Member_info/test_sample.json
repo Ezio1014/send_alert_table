@@ -1,0 +1,24 @@
+{
+  "Brand" : {"王品牛排": 23, "夏慕尼": 45, "肉次方": 49, "享鴨": 51, "藝奇": 53, "石二鍋": 17},
+  "Department": {"工程部維修組": 1, "食安部": 2, "區主管": 3, "門店主管": 4, "其他": 0},
+  "Member": {
+    "m001": {
+      "name": "Ezio_dep0",
+      "mail": "ezio@iess.com.tw",
+      "dep_NO": "0",
+      "store": "ALL"
+    },
+    "m002": {
+      "name": "Ezio_dep2",
+      "mail": "ezio@iess.com.tw",
+      "dep_NO": "2",
+      "store": "冷藏"
+    },
+    "m003": {
+      "name": "Ezio_dep4",
+      "mail": "ezio@iess.com.tw",
+      "dep_NO": "4",
+      "store": [22]
+    }
+  }
+}
