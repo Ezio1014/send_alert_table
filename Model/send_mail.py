@@ -14,7 +14,7 @@ class mail_setting:
             "pwd_in": config.get('mailSender_formal', 'pwd_in')
         }
 
-    def send_mail(self, recipient, mail_content, name):
+    def send_mail(self, recipient, mail_content, name, msg_Subject=None):
         # 建立訊息物件
         msg = email.message.EmailMessage()
 
@@ -22,7 +22,13 @@ class mail_setting:
         msg["From"] = self.config["Sender"]
         msg["To"] = recipient
 
-        msg["Subject"] = "王品/群品 冷櫃溫度異常發信測試"
+        # msg_Subject(收件人)，王品：1, 209：2
+        if msg_Subject == 1:
+            msg["Subject"] = "王品/群品 冷櫃溫度異常發信"
+        elif msg_Subject == 2:
+            msg["Subject"] = "209設備斷線發信"
+        else:
+            pass
 
         # 寄送郵件主要內容
         # msg.set_content("測試郵件純文字內容") #純文字信件內容

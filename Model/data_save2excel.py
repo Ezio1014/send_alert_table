@@ -18,6 +18,7 @@ log_path = os.path.join(os.getcwd(), "./log")  # LOG
 error = 0
 
 
+#  王品條件前置
 def calculate_time_difference(start_time, end_time):
     time_diff = end_time - start_time
     return time_diff.total_seconds() / 3600  # 將秒轉換為小時
@@ -47,6 +48,7 @@ def find_continuous_true(data):
     return continuous_true
 
 
+#  Excel檔案儲存(王品)
 def save_results_to_excel(units_NO, units, storesID, storesName, devices, temp_type,
                           abnormal_times, durations, min_temp, file_path, date):
     # 格式化日期

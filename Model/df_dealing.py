@@ -19,7 +19,7 @@ def build_html_table(table):
     return html_table
 
 
-# 主程式
+# 王品主程式
 def df_dealing(dep_number, store=None):
     # Excel 總表讀取
     df = pd.read_excel(excel_path)
