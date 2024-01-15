@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from DB import DB_API
 import pymysql
 
@@ -24,36 +24,51 @@ def calculate_time_difference(start_time, end_time):
     return time_diff.total_seconds() / 3600  # 將秒轉換為小時
 
 
-def find_continuous_true(data):
-    continuous_true = []
+def find_continual_true(data):
+    # 日期轉換
+    def date_trans(d):
+        return d.date()
+    continual_true = []
     start_time = None
 
     for idx, row in data.iterrows():
         receive_time = row['receiveTime']
         compare = row['Compare']
+        # print(f'receiveTime:{receive_time}')
 
         if compare == "True":
             if start_time is None:
                 start_time = receive_time
+            # 20240111 新增判定：compare 為 True 且 start_time 為當日最後一筆資料時，跨日後碰上 compare = True
+            elif start_time is not None and date_trans(start_time) != date_trans(receive_time):
+                end_time = datetime.combine(start_time.date(), time(9, 0, 0))
+                continual_true.append((start_time, end_time))
+                start_time = receive_time
         else:
-            if start_time is not None:
+            if start_time is not None and date_trans(start_time) == date_trans(receive_time):
                 end_time = receive_time
-                continuous_true.append((start_time, end_time))
+                continual_true.append((start_time, end_time))
+                start_time = None
+            # 20240111 新增判定：compare 為 True 且 start_time 為當日最後一筆資料時，跨日後碰上 compare = False
+            elif start_time is not None and date_trans(start_time) != date_trans(receive_time):
+                end_time = datetime.combine(start_time.date(), time(9, 0, 0))
+                continual_true.append((start_time, end_time))
                 start_time = None
 
     if start_time is not None:
         end_time = data.iloc[-1]['receiveTime']
-        continuous_true.append((start_time, end_time))
+        continual_true.append((start_time, end_time))
 
-    return continuous_true
+    return continual_true
 
 
 #  Excel檔案儲存(王品)
 def save_results_to_excel(units_NO, units, storesID, storesName, devices, temp_type,
-                          abnormal_times, durations, min_temp, file_path, date):
+                          abnormal_dates, abnormal_times, durations, min_temp, file_path, date):
     # 格式化日期
-    parsed_date = datetime.strptime(date, '%Y-%m-%d').date()
-    formatted_date = parsed_date.strftime('%m月%d日').lstrip('0')
+    for i in range(len(abnormal_dates)):
+        formatted_date = datetime.strptime(abnormal_dates[i], '%Y-%m-%d').date().strftime('%m月%d日').lstrip('0')
+        abnormal_dates[i] = formatted_date
 
     # 檔案路徑
     full_path = os.path.join(file_path, f"{date}.xlsx")
@@ -70,7 +85,7 @@ def save_results_to_excel(units_NO, units, storesID, storesName, devices, temp_t
                     '設備編號': devices,
                     '溫層設定': temp_type,
                     '異常判定': '異常',
-                    '判定日期': f'{formatted_date}',
+                    '判定日期': abnormal_dates,
                     '異常時間': abnormal_times,
                     '持續時間(小時)': durations,
                     '區間最低溫(攝氏)': min_temp}
@@ -90,15 +105,16 @@ def save_results_to_excel(units_NO, units, storesID, storesName, devices, temp_t
 
 def run(numbers, names, storeID, storeName, date, brand, siteID):
     # 儲存結果的列表
-    units_NO = []
-    units = []
-    stores_ID = []
-    stores_name = []
-    devices = []
-    temp_type = []
-    abnormal_times = []
-    durations = []
-    min_temp = []
+    units_NO = []        # 事業處編號
+    units = []           # 事業處
+    stores_ID = []       # 店編
+    stores_name = []     # 店別
+    devices = []         # 設備編號
+    temp_type = []       # 溫層設定
+    abnormal_dates = []  # 判定日期
+    abnormal_times = []  # 異常時間
+    durations = []       # 持續時間(小時)
+    min_temp = []        # 區間最低溫(攝氏)
 
     for i in range(len(numbers)):
         dataframes = []
@@ -114,10 +130,10 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
             # 將 receiveTime 欄位轉換為 datetime 格式
             combined_df['receiveTime'] = pd.to_datetime(combined_df['receiveTime'])
             # 呼叫函式找尋連續的 True 頭尾並計算時間差
-            continuous_true_intervals = find_continuous_true(combined_df)
+            continual_true_intervals = find_continual_true(combined_df)
 
             deviceName = ''
-            for interval in continuous_true_intervals:
+            for interval in continual_true_intervals:
                 start_time, end_time = interval
                 time_diff = calculate_time_difference(start_time, end_time)
                 if time_diff <= 1:
@@ -125,7 +141,11 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
                 if deviceName != names[i]:
                     deviceName = names[i]
 
-                min_temperatures = DB_API.min_temperatures(numbers[i], date)  # 從結果中提取最小溫度值
+                # print(f'deviceID:{device_ID}')
+                # print(f'date:{date}')
+                # print(f'start_time:{start_time}')
+                # print(f'end_time:{end_time}')
+                min_temperatures = DB_API.min_temperatures(numbers[i], start_time, end_time)  # 從結果中提取最小溫度值
 
                 print(f"事業處：{brand}，店別：{storeName}，設備編號：{names[i]}，"
                       f"異常時間：{start_time.strftime('%H:%M:%S')} 至 {end_time.strftime('%H:%M:%S')}，"
@@ -139,6 +159,7 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
                 devices.append(f"{names[i]}")
                 temp_type.append(f"""{'冷凍' if '冷凍' in names[i] and '解凍' not in names[i] else 
                                       '解凍' if '冷凍' in names[i] and '解凍' in names[i] else '冷藏'}""")
+                abnormal_dates.append(f"{start_time.strftime('%Y-%m-%d')}")
                 abnormal_times.append(f"{start_time.strftime('%H:%M:%S')} 至 {end_time.strftime('%H:%M:%S')}")
                 durations.append(f"{time_diff:.2f}")
                 min_temp.append(f"{min_temperatures}")
@@ -156,8 +177,8 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
             error += 1
             # print(error_msg)
 
-    save_results_to_excel(units_NO, units, stores_ID, stores_name, devices, temp_type, abnormal_times, durations,
-                          min_temp, excel_path, date)  # 新增的函式呼叫
+    save_results_to_excel(units_NO, units, stores_ID, stores_name, devices, temp_type, abnormal_dates, abnormal_times,
+                          durations, min_temp, excel_path, date)  # 新增的函式呼叫
 
 
 def get_Devices_Data(parent, date, brand):
@@ -197,10 +218,11 @@ def data_save2excel(path, date):
 
 # ----------測試區----------
 if __name__ == '__main__':
-    pass
     # 測試用PATH
-    chose_date = str((datetime.now().date()) - timedelta(days=0))
-    excel_path = os.path.join(os.getcwd(), "../data")
-    log_path = os.path.join(os.getcwd(), "../log")
-    json_path = os.path.join('../Member_info', 'WOWprime.json')
+    # chose_date = str((datetime.now().date()) - timedelta(days=0))
+    # excel_path = os.path.join(os.getcwd(), "../data")
+    # log_path = os.path.join(os.getcwd(), "../log")
+    # json_path = os.path.join('../Member_info', 'WOWprime.json')
     # data_save2excel(json_path, chose_date)
+
+    pass

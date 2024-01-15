@@ -6,6 +6,7 @@ from Model.data_save2excel import data_save2excel
 from Model.df_dealing import df_dealing, build_html_table
 from Model.send_mail import mail_setting
 from DB.DB_API import device_disconnect
+import time
 
 
 # 王品警報主程式
@@ -65,7 +66,13 @@ def run_device_disconnect():
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     # function
     run_alert_WOWprime()
-    run_device_disconnect()
+    # run_device_disconnect()
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f'Done. Elapsed Time: {elapsed_time:.2f} seconds')
     print('done.')

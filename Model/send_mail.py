@@ -1,3 +1,4 @@
+import os
 import email.message  # 準備訊息物件設定
 import smtplib  # 連線到SMTP Sever
 import configparser
@@ -6,7 +7,8 @@ import configparser
 class mail_setting:
     def __init__(self):
         config = configparser.ConfigParser()
-        config.read('./.config/config')
+        configPATH = './.config/config' if os.path.isfile('./.config/config') else '../.config/config'
+        config.read(configPATH)
 
         self.config = {
             "Sender": config.get('mailSender_formal', 'Sender'),

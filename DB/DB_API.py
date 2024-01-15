@@ -1,3 +1,4 @@
+import os
 import pymysql
 import configparser
 import pandas as pd
@@ -8,8 +9,8 @@ class DB:
     # 建構式
     def __init__(self):
         config = configparser.ConfigParser()
-        config.read('./.config/config')  # 正式路徑
-        # config.read('../.config/config')  # 當前測試用路徑
+        configPATH = './.config/config' if os.path.isfile('./.config/config') else '../.config/config'
+        config.read(configPATH)
 
         self.config = {
             'host': config.get('DB_209', 'host'),
@@ -37,19 +38,26 @@ class DB:
 #  王品設備異常
 def alarm_sql_query(table_name, title, devices_type, date):
     formula = '0'
+    Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
     if devices_type == 1:
-        formula = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) > -18"
+        formula = f"{Probe1_string} > -18"
     elif devices_type == 2:
-        formula = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) > 7"
+        formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
     elif devices_type == 3:
-        formula = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) > -5"
+        formula = f"{Probe1_string} > -5"
+
+    insert_query = ""
+    for i in range(1, 14):
+        query = f""" OR (receiveTime BETWEEN DATE_SUB('{date} 03:00:00', INTERVAL {i} DAY) 
+                             AND DATE_SUB('{date} 09:00:00', INTERVAL {i} DAY))"""
+        insert_query += query
 
     sql_query = f"""
                 SELECT receiveTime,
                        IFNULL(MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END), NULL) AS `{title}`,
                        CASE WHEN {formula} THEN 'True' ELSE 'False' END AS Compare
                 FROM ems_data.`{table_name}`
-                Where receiveTime between '{date} 03:00:00' and '{date} 09:00:00'
+                Where receiveTime between '{date} 03:00:00' and '{date} 09:00:00' {insert_query}
                 GROUP BY receiveTime
                 HAVING MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) IS NOT NULL;
                 """
@@ -63,10 +71,10 @@ def alarm_sql_query(table_name, title, devices_type, date):
     return df
 
 
-def min_temperatures(devicesID, date):
+def min_temperatures(devicesID, startTime, endTime):
     min_temp_sql_query = f'''SELECT MIN(CASE WHEN NAME = 'Probe1' THEN VALUE END) AS Min_Probe1
                              FROM ems_data.`{devicesID}`
-                             WHERE receiveTime BETWEEN '{date} 03:00:00' AND '{date} 09:00:00' AND NAME = 'Probe1';
+                             WHERE receiveTime BETWEEN '{startTime}' AND '{endTime}' AND NAME = 'Probe1';
                          '''
     min_temperatures_result = DB().sql_connect(min_temp_sql_query)
 
