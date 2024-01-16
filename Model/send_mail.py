@@ -45,14 +45,3 @@ class mail_setting:
 # ----------測試區----------
 if __name__ == '__main__':
     pass
-    # import pandas as pd
-    # fileName = str(datetime.now().date())
-    # df = pd.read_excel(f"../data/{fileName}.xlsx")
-    #
-    # html_table = df.to_html(index=False, classes='table table-condensed table-bordered')
-    # html_table = html_table.replace('<th>', '<th style="text-align: center;">')
-    # html_table = html_table.replace('<td>', '<td style="text-align: center;">')
-
-    # Mail = mail_setting()
-    # addr = "a224607@gmail.com"
-    # Mail.send_mail(addr, html_table)

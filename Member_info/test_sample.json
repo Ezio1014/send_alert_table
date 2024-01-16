@@ -3,22 +3,40 @@
   "Department": {"工程部維修組": 1, "食安部": 2, "區主管": 3, "門店主管": 4, "其他": 0},
   "Member": {
     "m001": {
-      "name": "Ezio_dep0",
+      "name": "Ezio_其他",
       "mail": "ezio@iess.com.tw",
       "dep_NO": "0",
       "store": "ALL"
     },
     "m002": {
-      "name": "Ezio_dep2",
+      "name": "Ezio_工程部維修組",
+      "mail": "ezio@iess.com.tw",
+      "dep_NO": "1",
+      "store": "ALL"
+    },
+    "m003": {
+      "name": "Ezio_食安部",
       "mail": "ezio@iess.com.tw",
       "dep_NO": "2",
       "store": "冷藏"
     },
-    "m003": {
-      "name": "Ezio_dep4",
+    "m004": {
+      "name": "Ezio_區主管01",
+      "mail": "ezio@iess.com.tw",
+      "dep_NO": "3",
+      "store": [52,57,59]
+    },
+    "m005": {
+      "name": "Ezio_區主管02",
+      "mail": "ezio@iess.com.tw",
+      "dep_NO": "3",
+      "store": [20,21,22]
+    },
+    "m006": {
+      "name": "Ezio_門店主管01",
       "mail": "ezio@iess.com.tw",
       "dep_NO": "4",
-      "store": [22]
+      "store": [63]
     }
   }
 }

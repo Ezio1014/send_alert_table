@@ -85,16 +85,4 @@ def df_dealing(dep_number, store=None):
 # ----------測試區----------
 if __name__ == '__main__':
     # function
-    # fileName = '2024-01-09'
-    # def today_date():
-    #     start_date = str((datetime.now().date()))
-    #     date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-    #     todayDate = date_obj.strftime('%m月%d日').lstrip('0')  # 格式化日期
-    #     return todayDate
-    #
-    # excel_path = f"../data/{fileName}.xlsx"
-    # df1 = pd.read_excel(excel_path)
-    # df1 = df1[(df1['區間最低溫(攝氏)'] > 0) & (df1['事業處編號'] == 51)]
-
-    # print(df1)
     pass

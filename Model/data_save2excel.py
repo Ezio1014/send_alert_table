@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import json
-from datetime import datetime, timedelta, time
+from datetime import datetime, time
 from DB import DB_API
 import pymysql
 
@@ -34,7 +34,6 @@ def find_continual_true(data):
     for idx, row in data.iterrows():
         receive_time = row['receiveTime']
         compare = row['Compare']
-        # print(f'receiveTime:{receive_time}')
 
         if compare == "True":
             if start_time is None:
@@ -141,10 +140,6 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
                 if deviceName != names[i]:
                     deviceName = names[i]
 
-                # print(f'deviceID:{device_ID}')
-                # print(f'date:{date}')
-                # print(f'start_time:{start_time}')
-                # print(f'end_time:{end_time}')
                 min_temperatures = DB_API.min_temperatures(numbers[i], start_time, end_time)  # 從結果中提取最小溫度值
 
                 print(f"事業處：{brand}，店別：{storeName}，設備編號：{names[i]}，"
@@ -218,6 +213,7 @@ def data_save2excel(path, date):
 
 # ----------測試區----------
 if __name__ == '__main__':
+    # from datetime import timedelta
     # 測試用PATH
     # chose_date = str((datetime.now().date()) - timedelta(days=0))
     # excel_path = os.path.join(os.getcwd(), "../data")
