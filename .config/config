@@ -2,19 +2,26 @@
 days = 0
 
 [DB_209]
-host = DBHost
-port = DBPort
-user = DBAccount
-password = DBPassword
+host = your host
+port = connect port
+user = userName
+password = userPassword
 charset = utf8
-database = DBDatabase
+database = databaseName
+
+[DB_31]
+server = your host
+database = databaseName
+username = userName
+password = userPassword
+driver = ODBC Driver 17 for SQL Server
 
 [mailSender_formal]
-Sender = yourMail
-acc_in = yourMail
-pwd_in = yourPassword
+Sender = SenderMail
+acc_in = SenderMail
+pwd_in = your KEY
 
 [mailSender_test]
-Sender = yourMail
-acc_in = yourMail
-pwd_in = yourPassword
+Sender = SenderMail
+acc_in = SenderMail
+pwd_in = your KEY
