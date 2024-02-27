@@ -16,27 +16,20 @@ class mail_setting:
             "pwd_in": config.get('mailSender_formal', 'pwd_in')
         }
 
-    def send_mail(self, recipient, mail_content, name, msg_Subject=None):
+    def send_mail(self, name, recipient, msg_Subject, table_Subject, mail_content):
         # 建立訊息物件
         msg = email.message.EmailMessage()
 
         # 利用物件建立基本設定
         msg["From"] = self.config["Sender"]
         msg["To"] = recipient
-
-        # msg_Subject(收件人)，王品：1, 209：2
-        if msg_Subject == 1:
-            msg["Subject"] = "王品/群品 冷櫃溫度異常發信"
-        elif msg_Subject == 2:
-            msg["Subject"] = "209設備斷線發信"
-        else:
-            pass
+        msg["Subject"] = msg_Subject  # 郵件主旨
 
         # 寄送郵件主要內容
-        # msg.set_content("測試郵件純文字內容") #純文字信件內容
-        msg.add_alternative(f"<h3>{name}您好，</h3>異常報表：\n{mail_content}", subtype="html")  # HTML信件內容
+        msg_content = f"<h2>{name}您好，</h2><h3>{table_Subject}：</h3>\n{mail_content}"
+        msg.add_alternative(msg_content, subtype="html")
 
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)  # 建立gmail連驗
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)  # 建立gmail連線驗證
         server.login(self.config["acc_in"], self.config["pwd_in"])
         server.send_message(msg)
         server.close()  # 發送完成後關閉連線

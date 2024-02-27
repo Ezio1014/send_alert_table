@@ -6,7 +6,7 @@ from DB import DB_API
 import pymysql
 
 # 創建 DB 實例
-db = DB_API.DB()
+db = DB_API.DB_209()
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.expand_frame_repr', False)  # 避免自動折行顯示
