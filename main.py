@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from Model.data_save2excel import data_save2excel
 from Model.df_dealing import df_dealing, build_html_table
 from Model.send_mail import mail_setting
-from DB.DB_API import device_disconnect, AC_unclosed_alarm
+from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList
 
 
 #  ------共用 Function--------------------------------------------------------------------------------------------------
@@ -61,7 +61,9 @@ def run_alert_WOWprime():
         for member in member_dict:
             mem = member_dict[member]
             html_table = df_dealing(mem['dep_NO'], mem['store'])
+            dep_name = mem['name']
             if html_table == 'empty':
+                print(f'dep_name：{dep_name} is empty')
                 continue
             else:
                 sendMail(mem["name"], mem["mail"], "王品/群品 冷櫃溫度異常發信", "冷櫃溫度異常報表", html_table)
@@ -119,7 +121,9 @@ if __name__ == '__main__':
         elif sys.argv[1] == 'AC_unclosed_0830':
             run_AC_unclosed_alarm('0830')
         elif sys.argv[1] == 'AC_unclosed_1915':
-            run_AC_unclosed_alarm('1900')
+            run_AC_unclosed_alarm('1915')
+        elif sys.argv[1] == 'UpdateAlertTable':
+            getAlertList()
         else:
             print(f"Unknown function: {sys.argv[1]}")
     else:
@@ -127,4 +131,3 @@ if __name__ == '__main__':
 
     # ------測試區------
     # run_alert_WOWprime()
-    # run_device_disconnect()
