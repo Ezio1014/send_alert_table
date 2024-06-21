@@ -18,7 +18,7 @@ log_path = os.path.join(os.getcwd(), "./log")  # LOG
 error = 0
 
 
-#  王品條件前置
+# 計算時間差
 def calculate_time_difference(start_time, end_time):
     time_diff = end_time - start_time
     return time_diff.total_seconds() / 3600  # 將秒轉換為小時
@@ -102,7 +102,8 @@ def save_results_to_excel(units_NO, units, storesID, storesName, devices, temp_t
             combined_df.to_excel(writer, index=False, sheet_name='異常設備列表', na_rep='NULL')  # 將合併後的 DataFrame 寫入工作表
 
 
-def run(numbers, names, storeID, storeName, date, brand, siteID):
+def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
+
     # 儲存結果的列表
     units_NO = []        # 事業處編號
     units = []           # 事業處
@@ -115,10 +116,14 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
     durations = []       # 持續時間(小時)
     min_temp = []        # 區間最低溫(攝氏)
 
+    # 其他設定
+    tempType_dict = {1: "冷凍", 2: "解凍", 3: "冷藏"}  # 溫層類別
+
     for i in range(len(numbers)):
         dataframes = []
-        devices_type = 1 if '冷凍' in names[i] and '解凍' not in names[i] else (
-                       3 if '冷凍' in names[i] and '解凍' in names[i] else 2)
+        # devices_type = 1 if '冷凍' in names[i] and '解凍' not in names[i] else (
+        #                3 if '冷凍' in names[i] and '解凍' in names[i] else 2)
+        devices_type = alarmType[i]
         device_ID, device_Name = numbers[i], names[i]
         try:
             df = DB_API.alarm_sql_query(numbers[i], names[i], devices_type, date)
@@ -152,8 +157,9 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
                 stores_ID.append(f"{storeID}")
                 stores_name.append(f"{storeName}")
                 devices.append(f"{names[i]}")
-                temp_type.append(f"""{'冷凍' if '冷凍' in names[i] and '解凍' not in names[i] else 
-                                      '解凍' if '冷凍' in names[i] and '解凍' in names[i] else '冷藏'}""")
+                # temp_type.append(f"""{'冷凍' if '冷凍' in names[i] and '解凍' not in names[i] else
+                #                       '解凍' if '冷凍' in names[i] and '解凍' in names[i] else '冷藏'}""")
+                temp_type.append(tempType_dict[devices_type])
                 abnormal_dates.append(f"{start_time.strftime('%Y-%m-%d')}")
                 abnormal_times.append(f"{start_time.strftime('%H:%M:%S')} 至 {end_time.strftime('%H:%M:%S')}")
                 durations.append(f"{time_diff:.2f}")
@@ -177,7 +183,7 @@ def run(numbers, names, storeID, storeName, date, brand, siteID):
 
 
 def get_Devices_Data(parent, date, brand):
-    parent_sql = 'select id, name from ems_information.sites where parent = {} order by parent;'.format(parent)
+    parent_sql = 'SELECT id, name FROM ems_information.sites WHERE parent = {} order by parent;'.format(parent)
     siteID_result = db.sql_connect(parent_sql)
 
     site_ids = [row[0] for row in siteID_result]  # 提取每個元組的第一個元素（id）
@@ -186,15 +192,17 @@ def get_Devices_Data(parent, date, brand):
     for n in range(len(site_ids)):
         device_ids = []  # 初始化 device_ids 變數
         device_names = []  # 初始化 device_names 變數
-        device_sql = 'select id, name from ems_information.devices where siteID = {}'.format(site_ids[n])
+        device_alarmType = []  # 初始化 device_alarmType 變數
+        device_sql = 'SELECT id, name, alarm_type FROM ems_information.devices WHERE siteID = {};'.format(site_ids[n])
         deviceID_result = db.sql_connect(device_sql)
         for row in deviceID_result:
             if row[1]:  # 檢查 device 名稱是否非空
                 device_ids.append(row[0])
                 device_names.append(row[1])
+                device_alarmType.append(row[2])
 
         print(f'店鋪ID：{site_ids[n]}\n店鋪名稱：{site_names[n]}\n設備ID：{device_ids}\n設備名稱：{device_names}')
-        run(device_ids, device_names, site_ids[n], site_names[n], date, brand, parent)
+        run(device_ids, device_names, site_ids[n], site_names[n], date, brand, parent, device_alarmType)
 
 
 # 主程式

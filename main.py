@@ -4,6 +4,7 @@ import sys
 import json
 import time
 import configparser
+import logging
 from datetime import datetime, timedelta
 
 # 程式套件
@@ -11,6 +12,16 @@ from Model.data_save2excel import data_save2excel
 from Model.df_dealing import df_dealing, build_html_table
 from Model.send_mail import mail_setting
 from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList
+
+# 設定基本的日誌配置
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler('app.log')  # 將日誌寫入文件
+                        # logging.StreamHandler()          # 將日誌輸出到控制台
+                    ])
+
+logger = logging.getLogger(__name__)
 
 
 #  ------共用 Function--------------------------------------------------------------------------------------------------
@@ -67,6 +78,7 @@ def run_alert_WOWprime():
                 continue
             else:
                 sendMail(mem["name"], mem["mail"], "王品/群品 冷櫃溫度異常發信", "冷櫃溫度異常報表", html_table)
+                logger.info("{} Mail已發送".format(mem["name"]))
 
 
 # 209設備斷線主程式
