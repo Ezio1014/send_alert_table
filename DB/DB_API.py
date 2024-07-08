@@ -138,17 +138,17 @@ class DB_31:
                 print(f"Error: {e}")
 
 
-#  王品設備異常
+#  王品設備異常 1:冷凍 2:解凍 3:冷藏
 def alarm_sql_query(table_name, title, devices_type, date):
     formula = '0'
     Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
     # 設備條件
     if devices_type == 1:  # 冷凍冰箱
         formula = f"{Probe1_string} > -18"
-    elif devices_type == 2:  # 冷藏冰箱
-        formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
-    elif devices_type == 3:  # 解凍冰箱
+    elif devices_type == 2:  # 解凍冰箱
         formula = f"{Probe1_string} > -5"
+    elif devices_type == 3:  # 冷藏冰箱
+        formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
 
     insert_query = ""
     for i in range(1, 14):

@@ -121,8 +121,6 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
 
     for i in range(len(numbers)):
         dataframes = []
-        # devices_type = 1 if '冷凍' in names[i] and '解凍' not in names[i] else (
-        #                3 if '冷凍' in names[i] and '解凍' in names[i] else 2)
         devices_type = alarmType[i]
         device_ID, device_Name = numbers[i], names[i]
         try:
@@ -157,8 +155,6 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
                 stores_ID.append(f"{storeID}")
                 stores_name.append(f"{storeName}")
                 devices.append(f"{names[i]}")
-                # temp_type.append(f"""{'冷凍' if '冷凍' in names[i] and '解凍' not in names[i] else
-                #                       '解凍' if '冷凍' in names[i] and '解凍' in names[i] else '冷藏'}""")
                 temp_type.append(tempType_dict[devices_type])
                 abnormal_dates.append(f"{start_time.strftime('%Y-%m-%d')}")
                 abnormal_times.append(f"{start_time.strftime('%H:%M:%S')} 至 {end_time.strftime('%H:%M:%S')}")
