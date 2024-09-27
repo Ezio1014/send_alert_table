@@ -138,6 +138,42 @@ class DB_31:
                 print(f"Error: {e}")
 
 
+class DB_SQL_MI:
+    # 建構式
+    def __init__(self):
+        config = configparser.ConfigParser()
+        configPATH = './.config/config' if os.path.isfile('./.config/config') else '../.config/config'
+        config.read(configPATH)
+
+        self.config = {
+            'server': config.get('DB_SQL_MI', 'server'),
+            'username': config.get('DB_SQL_MI', 'username'),
+            'password': config.get('DB_SQL_MI', 'password'),
+            'driver': config.get('DB_SQL_MI', 'driver'),
+            'database': config.get('DB_SQL_MI', 'db_history')
+        }
+
+    def sql_connect(self, sql):
+        # 使用pyodbc連接，需安裝odbc驅動
+        # 建立連接字串
+        conn_str = f"""DRIVER={self.config['driver']};
+                       SERVER={self.config['server']};
+                       DATABASE={self.config['database']};
+                       UID={self.config['username']};
+                       PWD={self.config['password']}"""
+
+        df = pd.DataFrame()  # 設置初始值
+        try:
+            connection = pyodbc.connect(conn_str)  # 建立連接
+            df = pd.read_sql(sql, connection)
+
+            connection.close()  # 關閉連接
+
+        except Exception as e:
+            print(f"Error: {e}")
+        return df
+
+
 #  王品設備異常 1:冷凍 2:解凍 3:冷藏
 def alarm_sql_query(table_name, title, devices_type, date):
     formula = '0'
@@ -165,7 +201,7 @@ def alarm_sql_query(table_name, title, devices_type, date):
                 GROUP BY receiveTime
                 HAVING MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) IS NOT NULL;
                 """
-
+    # print(sql_query)
     data = DB_209().sql_connect(sql_query)
     columns = ['receiveTime', title, 'Compare']
 
@@ -188,6 +224,84 @@ def min_temperatures(devicesID, startTime, endTime):
 
 #  209客戶S800設備斷線
 def device_disconnect():
+    disconnect_sql_query = f'''SELECT a.id ,d.name, b.name, a.name, c.receiveTime, 
+                                      ROUND(TIMESTAMPDIFF(SECOND, c.receiveTime, NOW()) / 60, 0)
+                               FROM ems_information.devices a
+                               LEFT JOIN ems_information.sites b on a.siteID = b.id
+                               LEFT JOIN ems_information.status c on a.id = c.deviceID
+                               LEFT JOIN ems_information.sites d on b.parent = d.id
+                               WHERE a.enable = 1 
+                               AND b.id not in (2,3,4,6) 
+                               AND b.parent <> 0 
+                               AND c.receiveTime < DATE_SUB(NOW(), INTERVAL 1 HOUR);'''
+    data = DB_209().sql_connect(disconnect_sql_query)
+
+    columns = ['設備編號', '公司', '分店', '設備名稱', '最後一筆資料時間', '已經斷線(分鐘)']
+    df = pd.DataFrame(data, columns=columns)
+    df = df.replace('', pd.NA)  # 將空字符串轉換為 NaN
+
+    return df
+
+
+#  王品設備異常 1:冷凍 2:解凍 3:冷藏 (SQL_MI版)
+def alarm_sql_query_SQLMI(table_name, deviceName, devices_type, date):
+    # 如果 devices_type 為 0，直接返回空的 DataFrame
+    if devices_type == 0:
+        columns = ['receiveTime', deviceName, 'Compare']
+        return pd.DataFrame(columns=columns)  # 返回一個空的 DataFrame
+
+    formula = '0 = 1'
+    Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
+    # 設備條件
+    if devices_type == 1:  # 冷凍冰箱
+        formula = f"{Probe1_string} > -18"
+    elif devices_type == 2:  # 解凍冰箱
+        formula = f"{Probe1_string} > -5"
+    elif devices_type == 3:  # 冷藏冰箱
+        formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
+
+    insert_query = ""
+    for i in range(1, 14):
+        query = f""" OR (receiveTime BETWEEN DATEADD(DAY, -{i}, '{date} 03:00:00') 
+                                         AND DATEADD(DAY, -{i}, '{date} 09:00:00'))"""
+        insert_query += query
+
+    sql_query = f"""
+                SELECT receiveTime,
+                       ISNULL(MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END), NULL) AS '{deviceName}',
+                       CASE WHEN {formula} THEN 'True' ELSE 'False' END AS Compare
+                FROM [ems_data].[dbo].[{table_name}] WITH (NOLOCK)
+                WHERE receiveTime between '{date} 03:00:00' and '{date} 09:00:00' {insert_query}
+                GROUP BY receiveTime
+                HAVING MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) IS NOT NULL
+                ORDER BY receiveTime;
+                """
+    # print(sql_query)
+
+    data = DB_SQL_MI().sql_connect(sql_query)
+    columns = ['receiveTime', deviceName, 'Compare']
+
+    df = pd.DataFrame(data, columns=columns)
+    df = df.replace('', pd.NA)  # 將空字符串轉換為 NaN
+
+    return df
+
+
+def min_temperatures_SQLMI(devicesID, startTime, endTime):
+    min_temp_sql_query = f'''SELECT MIN(CASE WHEN NAME = 'Probe1' THEN VALUE END) AS Min_Probe1
+                             FROM [ems_data].[dbo].[{devicesID}] WITH (NOLOCK) 
+                             WHERE receiveTime BETWEEN '{startTime}' AND '{endTime}' AND NAME = 'Probe1';
+                         '''
+
+    min_temperatures_result = DB_SQL_MI().sql_connect(min_temp_sql_query)
+    # print(min_temperatures_result)
+
+    # return 最小溫度值
+    return min_temperatures_result.iloc[0]['Min_Probe1']
+
+
+#  209客戶S800設備斷線
+def device_disconnect_SQLMI():
     disconnect_sql_query = f'''SELECT a.id ,d.name, b.name, a.name, c.receiveTime, 
                                       ROUND(TIMESTAMPDIFF(SECOND, c.receiveTime, NOW()) / 60, 0)
                                FROM ems_information.devices a
@@ -277,20 +391,24 @@ def AC_unclosed_alarm(selectTime):
     elif selectTime == '1900':
         time_query = 'and a.time >= dateadd(hour, -2, getdate()) '
 
+    # u1.ID in (2, 332) 2：華銀 332：大潤發
     sql_query = f'''SELECT u.company, u.branch, d.device, d.device2,
                     min(a.createDate) startTime, max(a.time) endTime, count(d.device) times, a.text
                     FROM
                     (select u1.name as company, u2.ID, u2.name as branch 
-                    FROM IESS_huanan.dbo.units u1 
-                    INNER JOIN IESS_huanan.dbo.units u2 on u1.ID in (2, 332) and u1.ID = u2.parent) as u, 
+                        FROM IESS_huanan.dbo.units u1 
+                        INNER JOIN IESS_huanan.dbo.units u2 on u1.ID in (2, 332) and u1.ID = u2.parent) as u, 
                     (select d1.unitID as unitID, d1.name as device, d2.ID as ID, d2.name as device2 
-                    FROM IESS_huanan.dbo.devices d1 INNER JOIN IESS_huanan.dbo.devices d2 on d1.ID = d2.parent) as d,
+                        FROM IESS_huanan.dbo.devices d1 
+                        INNER JOIN IESS_huanan.dbo.devices d2 on d1.ID = d2.parent) as d,
                     (select alt.createDate, alt.time, alt.send, alm.type, at.text, alm.sendType, alm.emailAddress,
                      alm.phone, alt.id, alt.device_ID, alm.funEnable 
-                    FROM IESS_huanan.dbo.alert alt INNER JOIN IESS_huanan.dbo.alarm alm on alt.alarm_ID = alm.id 
-                    INNER JOIN IESS_huanan.dbo.alarmText at on alm.alarmText_ID = at.id and alm.alarmText_ID = 5) as a
+                        FROM IESS_huanan.dbo.alert alt 
+                        INNER JOIN IESS_huanan.dbo.alarm alm on alt.alarm_ID = alm.id 
+                        INNER JOIN IESS_huanan.dbo.alarmText at on alm.alarmText_ID = at.id 
+                            and alm.alarmText_ID = 5) as a
                     WHERE u.ID = d.unitID and d.ID = a.device_ID
-                    and a.send = 0 and a.funEnable = 1 
+                    AND a.send = 0 and a.funEnable = 1 
                     {time_query} 
                     GROUP BY u.company, u.branch, d.device, d.device2, a.text;'''
 

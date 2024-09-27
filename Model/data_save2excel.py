@@ -7,6 +7,7 @@ import pymysql
 
 # 創建 DB 實例
 db = DB_API.DB_209()
+db_SQL_MI = DB_API.DB_SQL_MI()
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.expand_frame_repr', False)  # 避免自動折行顯示
@@ -124,7 +125,9 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
         devices_type = alarmType[i]
         device_ID, device_Name = numbers[i], names[i]
         try:
-            df = DB_API.alarm_sql_query(numbers[i], names[i], devices_type, date)
+            # df = DB_API.alarm_sql_query(numbers[i], names[i], devices_type, date)  # DB_209
+            df = DB_API.alarm_sql_query_SQLMI(numbers[i], names[i], devices_type, date)  # DB_SQL_MI
+
             dataframes.append(df)
 
             # 將多個 DataFrame 合併成一個
@@ -133,6 +136,11 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
             combined_df['receiveTime'] = pd.to_datetime(combined_df['receiveTime'])
             # 呼叫函式找尋連續的 True 頭尾並計算時間差
             continual_true_intervals = find_continual_true(combined_df)
+            # print('------')
+            # print(combined_df)
+            # print('------')
+            # print(continual_true_intervals)
+            # print('------')
 
             deviceName = ''
             for interval in continual_true_intervals:
@@ -143,7 +151,11 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
                 if deviceName != names[i]:
                     deviceName = names[i]
 
-                min_temperatures = DB_API.min_temperatures(numbers[i], start_time, end_time)  # 從結果中提取最小溫度值
+                # DB_209 從結果中提取最小溫度值
+                # min_temperatures = DB_API.min_temperatures(numbers[i], start_time, end_time)
+
+                # DB_SQL_MI 從結果中提取最小溫度值
+                min_temperatures = DB_API.min_temperatures_SQLMI(numbers[i], start_time, end_time)
 
                 print(f"事業處：{brand}，店別：{storeName}，設備編號：{names[i]}，"
                       f"異常時間：{start_time.strftime('%H:%M:%S')} 至 {end_time.strftime('%H:%M:%S')}，"
@@ -179,23 +191,22 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
 
 
 def get_Devices_Data(parent, date, brand):
-    parent_sql = 'SELECT id, name FROM ems_information.sites WHERE parent = {} order by parent;'.format(parent)
-    siteID_result = db.sql_connect(parent_sql)
+    parent_sql = f'SELECT id, name FROM [ems_information].[dbo].[sites] WHERE parent = {parent} order by parent;'
+    siteID_result = db_SQL_MI.sql_connect(parent_sql)
 
-    site_ids = [row[0] for row in siteID_result]  # 提取每個元組的第一個元素（id）
-    site_names = [row[1] for row in siteID_result]  # 提取每個元組的第一個元素（name）
+    df_sites = pd.DataFrame(siteID_result, columns=["id", "name"])  # 將查詢結果轉換為 DataFrame
+    site_ids = df_sites["id"].tolist()  # 提取 id
+    site_names = df_sites["name"].tolist()  # 提取 name
 
     for n in range(len(site_ids)):
-        device_ids = []  # 初始化 device_ids 變數
-        device_names = []  # 初始化 device_names 變數
-        device_alarmType = []  # 初始化 device_alarmType 變數
-        device_sql = 'SELECT id, name, alarm_type FROM ems_information.devices WHERE siteID = {};'.format(site_ids[n])
-        deviceID_result = db.sql_connect(device_sql)
-        for row in deviceID_result:
-            if row[1]:  # 檢查 device 名稱是否非空
-                device_ids.append(row[0])
-                device_names.append(row[1])
-                device_alarmType.append(row[2])
+        device_sql = f'SELECT id, name, alarm_type FROM [ems_information].[dbo].[devices] WHERE siteID = {site_ids[n]};'
+        deviceID_result = db_SQL_MI.sql_connect(device_sql)
+        df_device = pd.DataFrame(deviceID_result, columns=["id", "name", "alarm_type"])  # 將查詢結果轉換為 DataFrame
+        df_device = df_device[df_device['name'].notna() & df_device['name'].str.strip().ne('')]
+
+        device_ids = df_device["id"].tolist()  # 初始化 device_ids 變數
+        device_names = df_device["name"].tolist()  # 初始化 device_names 變數
+        device_alarmType = df_device["alarm_type"].tolist()  # 初始化 device_alarmType 變數
 
         print(f'店鋪ID：{site_ids[n]}\n店鋪名稱：{site_names[n]}\n設備ID：{device_ids}\n設備名稱：{device_names}')
         run(device_ids, device_names, site_ids[n], site_names[n], date, brand, parent, device_alarmType)
