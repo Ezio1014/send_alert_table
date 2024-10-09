@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from Model.data_save2excel import data_save2excel
 from Model.df_dealing import df_dealing, build_html_table
 from Model.send_mail import mail_setting
+from Model import alarm_Power_DM
 from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList
 
 # 設定基本的日誌配置
@@ -58,7 +59,7 @@ def run_alert_WOWprime():
     part_fileName = str((datetime.now().date()) - timedelta(days=int(config.get('fileDate', 'days'))))
 
     # 王品警報成員設定檔 & 路徑
-    # file_path = os.path.join('./Member_info', 'WOWprime.json')      # 正式設定檔
+    # file_path = os.path.join('./Member_info', 'WOWprime.json')     # 正式設定檔
     file_path = os.path.join('./Member_info', 'test_sample.json')  # 測試設定檔
     excel_file_path = os.path.join(os.getcwd(), "data", f'{part_fileName}.xlsx')
 
@@ -122,6 +123,63 @@ def run_AC_unclosed_alarm(sendTime):
             sendMail(name, addr, "IESS空調未關警報(1915)", "空調未關報表", html_table)
 
 
+#  ------星巴克警報------
+# 需量(DM)警報
+def run_alarm_Power_DM():
+    alarm_Power_DM.save2excel()
+
+    # 載入JSON檔案
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    json_file_path = os.path.join(current_dir, '.', 'Member_info', 'alarm_Power_DM.json')
+
+    # EXCEL檔案路徑
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    excel_file_path = f"./data/alarm_DM/{current_date}.xlsx"
+
+    with open(json_file_path, 'r', encoding='utf-8') as f:
+        json_data = json.load(f)
+
+        # 根據JSON中的Member進行篩選和打印
+    for member_id, member_info in json_data['Member'].items():
+        store = member_info['store']
+        name = member_info['name']
+        mail = member_info['mail']
+
+        result_df = alarm_Power_DM.filter_data_by_store(store, excel_file_path)
+
+        # 如果沒有內容則跳過此迴圈
+        if result_df.empty:
+            continue
+
+        html_table = build_html_table(result_df)  # 有結果時生成HTML表格
+        sendMail(name, mail, "用電需量", "用電需量(DM)超過設定標準報表", html_table)  # 發送郵件
+
+        # # 打印篩選結果
+        # print(f"篩選結果 - {member_info['name']}:")
+        # print(result_df)
+        # print("\n")  # 每個篩選結果之間留一個空行
+
+
+# 需量(DM)警報
+def run_alarm_device_Run():
+    pass
+
+
+# 需量(DM)警報
+def run_alarm_AC_Err():
+    pass
+
+
+# 需量(DM)警報
+def run_alarm_EV_CO2():
+    pass
+
+
+# 需量(DM)警報
+def run_alarm_Water_TFV():
+    pass
+
+
 #  --------------------------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
     # function
@@ -136,10 +194,20 @@ if __name__ == '__main__':
             run_AC_unclosed_alarm('1915')
         elif sys.argv[1] == 'UpdateAlertTable':
             getAlertList()
+        elif sys.argv[1] == 'alarm_Power_DM':
+            run_alarm_Power_DM()
+        elif sys.argv[1] == 'alarm_device_Run':
+            run_alarm_device_Run()
+        elif sys.argv[1] == 'alarm_AC_Err':
+            run_alarm_AC_Err()
+        elif sys.argv[1] == 'alarm_EV_CO2':
+            run_alarm_EV_CO2()
+        elif sys.argv[1] == 'alarm_Water_TFV':
+            run_alarm_Water_TFV()
         else:
             print(f"Unknown function: {sys.argv[1]}")
     else:
         print("Usage: python script.py <function_name>")
 
     # ------測試區------
-    # run_alert_WOWprime()
+    # run_alarm_Power_DM()

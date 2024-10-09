@@ -5,6 +5,63 @@ import configparser
 import pandas as pd
 from datetime import datetime, timedelta
 from tqdm import tqdm
+import logging
+
+
+# log setting
+def setup_loggers(log_folder='Log', log_files=None):
+    """
+    設置多個日誌文件日誌記錄器
+    :param log_folder: 日誌文件夾路徑
+    :param log_files: 包含日誌名稱和文件名的字典
+    :return: 包含所有日誌記錄器的字典
+    """
+    # 獲取當前腳本所在的目錄
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # 將路徑再向上一層，獲取父目錄
+    parent_dir = os.path.dirname(current_dir)
+
+    # 設定log文件夾的路徑為父目錄下的 log 資料夾
+    log_folder = os.path.join(parent_dir, 'log')
+
+    # 定義多個日誌文件名稱
+    log_files = {
+        'alarm_DM_log': 'alarm_DM_log.txt',
+        'alarm_AC_Err': 'alarm_AC_Err.txt',
+        'alarm_device_Run': 'alarm_device_Run.txt',
+        'alarm_EV_CO2': 'alarm_EV_CO2.txt',
+        'alarm_Water_TFV': 'alarm_Water_TFV.txt'
+    }
+
+    # 檢查 Log 資料夾是否存在，如果不存在則創建
+    if not os.path.exists(log_folder):
+        os.makedirs(log_folder)
+
+    # 創建一個函數來設置每個日志文件的 logging 配置
+    def setup_logger(log_name, log_file, level=logging.ERROR):
+        logger = logging.getLogger(log_name)
+        logger.setLevel(level)
+
+        # 防止重複添加 handler
+        if not logger.handlers:
+            handler = logging.FileHandler(os.path.join(log_folder, log_file))
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+
+        return logger
+
+    # 設置每個日志文件
+    loggers = {}
+    for key, file_name in log_files.items():
+        loggers[key] = setup_logger(key, file_name)
+
+    return loggers
+
+
+# 初始化日志記錄器
+log = setup_loggers()
 
 
 # 建立MySQL連接
@@ -428,6 +485,48 @@ def AC_unclosed_alarm(selectTime):
     return df
 
 
+def alarm_DM():
+    search_query = """
+                   SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '警報值'
+                   FROM [ems_information].[dbo].[alarm_Power_DM] a
+                   INNER JOIN [ems_information].[dbo].[sites] b ON a.siteID = b.id
+                   WHERE a.enable = 1
+                   """
+    device_list = DB_SQL_MI().sql_connect(search_query)
+    device_list['觸發時間'] = None
+    device_list['數值'] = None
+
+    # 遍歷查詢結果的每一列
+    for index, row in device_list.iterrows():
+        deviceID = row['設備編號']
+        alarm_value = row['警報值']
+
+        # 第二次查詢，根據deviceID和alarm_value進行查詢
+        query = f"""
+                 SELECT TOP(1) [receiveTime], [name], [value]
+                 FROM [ems_data].[dbo].[{deviceID}]
+                 WHERE name = 'DM'
+                 AND value > {alarm_value}
+                 AND receiveTime BETWEEN 
+                     CONVERT(DATETIME, CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23) + ' 00:00:00') 
+                     AND CONVERT(DATETIME, CONVERT(VARCHAR, GETDATE(), 23) + ' 00:00:00');
+                 """
+
+        try:
+            result = DB_SQL_MI().sql_connect(query)
+
+            # 如果有查詢到數據，則將 receiveTime 和 value 更新到原始 dataframe 中
+            if not result.empty:
+                device_list.at[index, '觸發時間'] = result.iloc[0]['receiveTime']
+                device_list.at[index, '數值'] = result.iloc[0]['value']
+        except Exception as e:
+            # 使用 alarm_DM_log 的日誌記錄錯誤
+            log['alarm_DM_log'].error(f"Error querying deviceID {deviceID} with alarm_value {alarm_value}: {str(e)}")
+            log['alarm_DM_log'].handlers[0].flush()  # 確保日誌寫入到文件
+
+    return device_list
+
+
 def test():
     sql_1 = ["SELECT '101 儲蓄分行', '1F 總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [112] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'",
 "SELECT '103 城內分行', '1F 總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [1020] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'",
@@ -448,6 +547,6 @@ def test():
 
 # ----------測試區----------
 if __name__ == '__main__':
-    pass
-    # test()
+    # pass
+    alarm_DM()
     # getAlertList()
