@@ -193,7 +193,33 @@ def run_alarm_EV_CO2():
 
 # 累積水流量警報
 def run_alarm_Water_TFV():
-    pass
+    alarm_Water_TFV.save2excel()
+
+    # 載入JSON檔案
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    json_file_path = os.path.join(current_dir, '.', 'Member_info', 'alarm_Water_TFV.json')
+
+    # EXCEL檔案路徑
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    excel_file_path = f"./data/alarm_Water_TFV/{current_date}.xlsx"
+
+    with open(json_file_path, 'r', encoding='utf-8') as f:
+        json_data = json.load(f)
+
+        # 根據JSON中的Member進行篩選和打印
+    for member_id, member_info in json_data['Member'].items():
+        store = member_info['store']
+        name = member_info['name']
+        mail = member_info['mail']
+
+        result_df = alarm_Water_TFV.filter_data_by_store(store, excel_file_path)
+
+        # 如果沒有內容則跳過此迴圈
+        if result_df.empty:
+            continue
+
+        html_table = build_html_table(result_df)  # 有結果時生成HTML表格
+        sendMail(name, mail, "水流量數值未變化警報", "水流量數值報表", html_table)  # 發送郵件
 
 
 # 設備運作警報
@@ -236,4 +262,4 @@ if __name__ == '__main__':
         print("Usage: python script.py <function_name>")
 
     # ------測試區------
-    run_alarm_EV_CO2()
+    # run_alarm_Water_TFV()

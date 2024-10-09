@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 import pandas as pd
-import json
 from DB import DB_API
 
 

@@ -592,12 +592,11 @@ def alarm_TFV():
 
         # 第二次查詢，根據deviceID和alarm_value進行查詢
         query = f"""
-                 SELECT TOP(1) [receiveTime], [name], [value]
+                 SELECT [receiveTime], [name], [value]
                  FROM [ems_data].[dbo].[{deviceID}]
                  WHERE name = 'TFV'
-                 AND value > {alarm_value}
                  AND receiveTime BETWEEN 
-                     CONVERT(DATETIME, CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23) + ' 09:00:00') 
+                     CONVERT(DATETIME, CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23) + ' 08:55:00') 
                      AND CONVERT(DATETIME, CONVERT(VARCHAR, GETDATE(), 23) + ' 09:00:00');
                  """
 
@@ -606,8 +605,19 @@ def alarm_TFV():
 
             # 如果有查詢到數據，則將 receiveTime 和 value 更新到原始 dataframe 中
             if not result.empty:
-                device_list.at[index, '觸發時間'] = result.iloc[0]['receiveTime']
-                device_list.at[index, '數值'] = result.iloc[0]['value']
+                # 如果所有的 value 都相同，則選擇第一筆資料
+                if result['value'].nunique() == 1:
+                    # 取得第一筆和最後一筆資料的 receiveTime
+                    first_receive_time = result.iloc[0]['receiveTime']
+                    last_receive_time = result.iloc[-1]['receiveTime']
+
+                    # 計算兩者之間的時間差（以小時為單位）
+                    time_difference = (last_receive_time - first_receive_time).total_seconds() / 3600
+
+                    # 如果時間差超過 警報值(小時)，則更新最後一筆的資料
+                    if time_difference >= alarm_value:
+                        device_list.at[index, '觸發時間'] = result.iloc[-1]['receiveTime']
+                        device_list.at[index, '數值'] = result.iloc[-1]['value']
         except Exception as e:
             # 使用 alarm_DM_log 的日誌記錄錯誤
             log['alarm_Water_TFV'].error(f"Error querying deviceID {deviceID} with alarm_value {alarm_value}: {str(e)}")
