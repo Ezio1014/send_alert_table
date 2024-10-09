@@ -1,5 +1,5 @@
 {
-  "Store" : {"沙鹿北勢": 72, "湖口竹宣":81, "新店北新":82, "台南康橋":83, "台南首府":135, "新竹北大":168},
+  "Store" : {"沙鹿北勢": 72},
   "Department": {"門市": 1, "區維護": 2, "其他": 0},
   "Member": {
     "SA001": {
@@ -9,16 +9,16 @@
       "store": "ALL"
     },
     "S001": {
-      "name": "Ezio_新店北新",
+      "name": "Ezio_沙鹿北勢",
       "mail": "ezio@iess.com.tw",
       "dep_NO": "1",
-      "store": [82]
+      "store": [72]
     },
     "M001": {
-      "name": "Ezio_營業六區",
+      "name": "Ezio_營業五區",
       "mail": "ezio@iess.com.tw",
       "dep_NO": "2",
-      "store": [83,135]
+      "store": [72]
     }
   }
 }

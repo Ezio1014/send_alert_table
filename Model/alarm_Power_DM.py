@@ -19,7 +19,7 @@ def save2excel():
     # 定義保存路徑，路徑為上一層的 data/alarm_DM 資料夾
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)
-    save_dir = os.path.join(parent_dir, 'data', 'alarm_DM')
+    save_dir = os.path.join(parent_dir, 'data', 'alarm_Power_DM')
 
     # 檢查資料夾是否存在，如果不存在則創建
     if not os.path.exists(save_dir):
