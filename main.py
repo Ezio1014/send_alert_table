@@ -314,4 +314,4 @@ if __name__ == '__main__':
         print("Usage: python script.py <function_name>")
 
     # ------測試區------
-    run_alarm_device_Run()
+    # run_alarm_device_Run()
