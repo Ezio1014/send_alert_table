@@ -124,7 +124,7 @@ def run_AC_unclosed_alarm(sendTime):
 
 
 #  ------星巴克警報------
-# 需量(DM)警報
+# ---需量(DM)警報---
 def run_alarm_Power_DM():
     alarm_Power_DM.save2excel()
 
@@ -160,7 +160,7 @@ def run_alarm_Power_DM():
         # print("\n")  # 每個篩選結果之間留一個空行
 
 
-# CO2 濃度警報
+# ---CO2 濃度警報---
 def run_alarm_EV_CO2():
     alarm_EV_CO2.save2excel()
 
@@ -191,7 +191,7 @@ def run_alarm_EV_CO2():
         sendMail(name, mail, "CO2濃度超標警報", "CO2濃度超標報表", html_table)  # 發送郵件
 
 
-# 累積水流量警報
+# ---累積水流量警報---
 def run_alarm_Water_TFV():
     alarm_Water_TFV.save2excel()
 
@@ -222,10 +222,14 @@ def run_alarm_Water_TFV():
         sendMail(name, mail, "水流量數值未變化警報", "水流量數值報表", html_table)  # 發送郵件
 
 
-# 設備運作警報
-def run_alarm_device_Run():
+# ---設備運作警報---
+# 查詢並儲存
+def run_alarm_device_Run_saveFile():
     alarm_device_Run.save2excel()
 
+
+# 發送郵件
+def run_alarm_device_Run_sendEMail():
     # 載入JSON檔案
     current_dir = os.path.dirname(os.path.abspath(__file__))
     json_file_path = os.path.join(current_dir, '.', 'Member_info', 'alarm_device_Run.json')
@@ -253,7 +257,7 @@ def run_alarm_device_Run():
         sendMail(name, mail, "設備未關警報", "設備未關報表", html_table)  # 發送郵件
 
 
-# 空調異常警報
+# ---空調異常警報---
 def run_alarm_AC_Err():
     alarm_AC_Err.save2excel()
 
@@ -304,8 +308,10 @@ if __name__ == '__main__':
             run_alarm_EV_CO2()
         elif sys.argv[1] == 'alarm_Water_TFV':
             run_alarm_Water_TFV()
-        elif sys.argv[1] == 'alarm_device_Run':
-            run_alarm_device_Run()
+        elif sys.argv[1] == 'alarm_device_Run_saveFile':
+            run_alarm_device_Run_saveFile()
+        elif sys.argv[1] == 'alarm_device_Run_sendEMail':
+            run_alarm_device_Run_sendEMail()
         elif sys.argv[1] == 'alarm_AC_Err':
             run_alarm_AC_Err()
         else:

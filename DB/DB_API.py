@@ -629,7 +629,7 @@ def alarm_TFV():
 # 設備運作警報
 def alarm_DeviceRun():
     search_query = """
-                   SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '警報值'
+                   SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '營業結束時間'
                    FROM [ems_information].[dbo].[alarm_device_Run] a
                    INNER JOIN [ems_information].[dbo].[sites] b ON a.siteID = b.id
                    WHERE a.enable = 1
