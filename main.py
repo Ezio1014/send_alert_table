@@ -12,7 +12,7 @@ from Model.data_save2excel import data_save2excel
 from Model.df_dealing import df_dealing, build_html_table
 from Model.send_mail import mail_setting
 from Model import alarm_Power_DM, alarm_EV_CO2, alarm_AC_Err, alarm_device_Run, alarm_Water_TFV
-from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList
+from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList, device_disconnect_SQLMI
 
 # 設定基本的日誌配置
 logging.basicConfig(level=logging.DEBUG,
@@ -248,6 +248,9 @@ def run_alarm_device_Run_sendEMail():
         mail = member_info['mail']
 
         result_df = alarm_device_Run.filter_data_by_store(store, excel_file_path)
+
+        # 如果 '運作狀態' 欄位是字串 "NONE" 而不是真正的 None，使用以下代碼進行過濾：
+        result_df = result_df[result_df['運作狀態'].str.upper() != 'NONE']
 
         # 如果沒有內容則跳過此迴圈
         if result_df.empty:
