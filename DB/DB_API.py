@@ -4,7 +4,7 @@ import pyodbc
 import configparser
 import pandas as pd
 from datetime import datetime, timedelta
-from tqdm import tqdm
+# from tqdm import tqdm
 import logging
 
 
@@ -231,7 +231,7 @@ class DB_SQL_MI:
         return df
 
 
-#  王品設備異常 1:冷凍 2:解凍 3:冷藏
+#  王品設備異常 1:冷凍 2:解凍 3:冷藏 (209版，不使用了)
 def alarm_sql_query(table_name, title, devices_type, date):
     formula = '0'
     Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
@@ -245,7 +245,7 @@ def alarm_sql_query(table_name, title, devices_type, date):
 
     insert_query = ""
     for i in range(1, 14):
-        query = f""" OR (receiveTime BETWEEN DATE_SUB('{date} 03:00:00', INTERVAL {i} DAY) 
+        query = f""" OR (receiveTime BETWEEN DATE_SUB('{date} 03:00:00', INTERVAL {i} DAY)
                              AND DATE_SUB('{date} 09:00:00', INTERVAL {i} DAY))"""
         insert_query += query
 
@@ -358,22 +358,33 @@ def min_temperatures_SQLMI(devicesID, startTime, endTime):
 
 
 #  209客戶S800設備斷線
-def device_disconnect_SQLMI():
-    disconnect_sql_query = f'''SELECT a.id ,d.name, b.name, a.name, c.receiveTime, 
-                                      ROUND(TIMESTAMPDIFF(SECOND, c.receiveTime, NOW()) / 60, 0)
-                               FROM ems_information.devices a
-                               LEFT JOIN ems_information.sites b on a.siteID = b.id
-                               LEFT JOIN ems_information.status c on a.id = c.deviceID
-                               LEFT JOIN ems_information.sites d on b.parent = d.id
-                               WHERE a.enable = 1 
-                               AND b.id not in (2,3,4,6) 
-                               AND b.parent <> 0 
-                               AND c.receiveTime < DATE_SUB(NOW(), INTERVAL 1 HOUR);'''
-    data = DB_209().sql_connect(disconnect_sql_query)
+def device_disconnect_member():
+    sql_query = f'''SELECT a.name, a.email
+                    FROM [ems_information].[dbo].[member_info] a
+                    LEFT JOIN [ems_information].[dbo].[alarm_permission] b on a.id = b.memberID
+                    WHERE a.enable = 1 AND b.dc_disc = 1;'''
+    data = DB_SQL_MI().sql_connect(sql_query)
+    return data
 
-    columns = ['設備編號', '公司', '分店', '設備名稱', '最後一筆資料時間', '已經斷線(分鐘)']
-    df = pd.DataFrame(data, columns=columns)
-    df = df.replace('', pd.NA)  # 將空字符串轉換為 NaN
+
+def device_disconnect_SQLMI():
+    disconnect_sql_query = f'''SELECT a.id '設備編號', d.name '公司', b.name '分店', a.name '設備名稱', 
+                                      c.receiveTime '最後一筆資料時間', 
+                                      ROUND(DATEDIFF(SECOND, c.receiveTime, GETDATE()) / 60, 0) '已經斷線(分鐘)'
+                               FROM [ems_information].[dbo].[devices] a
+                                LEFT JOIN [ems_information].[dbo].[sites] b on a.siteID = b.id
+                                LEFT JOIN [ems_information].[dbo].[status] c on a.id = c.deviceID
+                                LEFT JOIN [ems_information].[dbo].[sites] d on b.parent = d.id
+                               WHERE a.enable = 1 
+                                AND b.id not in (2,3,4,6) 
+                                AND b.parent <> 0 
+                                AND c.receiveTime < DATEADD(HOUR, -1, GETDATE())
+                               ORDER BY a.siteID, a.id;'''
+    data = DB_SQL_MI().sql_connect(disconnect_sql_query)
+
+    # columns = ['設備編號', '公司', '分店', '設備名稱', '最後一筆資料時間', '已經斷線(分鐘)']
+    # df = pd.DataFrame(data, columns=columns)
+    df = data.replace('', pd.NA)  # 將空字符串轉換為 NaN
 
     return df
 
@@ -682,25 +693,12 @@ def alarm_AC_Err():
 
 
 def test():
-    sql_1 = ["SELECT '101 儲蓄分行', '1F 總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [112] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'",
-"SELECT '103 城內分行', '1F 總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [1020] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'",
-"SELECT '105 建成分行', '1F 總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [1984] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'",
-"SELECT '106 中山分行', '1F 總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [2786] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'",
-"SELECT '106 中山分行', '2F 總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [2788] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'",
-"SELECT '830 台東分行', '頂樓 14RT*2台分離式總用電', ROUND((MAX(kWh) - MIN(kWh)),2) AS '20:00-24:00' FROM [2110] WITH (NOLOCK) WHERE receiveTime BETWEEN '2024-03-22 20:00:00.000' AND '2024-03-23 00:00:00.000'"
-]
-    dataframes = []
-    for sql in tqdm(sql_1, desc="Processing SQL Queries"):
-        df1 = DB_31().sql_connect_d1(sql)
-        dataframes.append(df1)
-
-    merged_df = pd.concat(dataframes, ignore_index=True)  # 合併兩個 DataFrame
-    merged_df.to_excel(r'C:\Users\GC-Rita\PycharmProjects\send_alert_table\merged_output.xlsx', index=False)  # 將合併後的 DataFrame 存儲到 Excel 檔案中
-    print(merged_df)
+    pass
 
 
 # ----------測試區----------
 if __name__ == '__main__':
     # pass
-    alarm_DM()
+    a = device_disconnect_member()
+    print(a)
     # getAlertList()

@@ -12,7 +12,10 @@ from Model.data_save2excel import data_save2excel
 from Model.df_dealing import df_dealing, build_html_table
 from Model.send_mail import mail_setting
 from Model import alarm_Power_DM, alarm_EV_CO2, alarm_AC_Err, alarm_device_Run, alarm_Water_TFV
-from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList, device_disconnect_SQLMI
+from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList
+
+# 永曜設備斷線警報
+from DB.DB_API import device_disconnect_member, device_disconnect_SQLMI
 
 # 設定基本的日誌配置
 logging.basicConfig(level=logging.DEBUG,
@@ -84,24 +87,35 @@ def run_alert_WOWprime():
 
 # 209設備斷線主程式
 def run_device_disconnect():
-    config = configparser.ConfigParser()
-    config.read('.config/config')
+    # config = configparser.ConfigParser()
+    # config.read('.config/config')
+    #
+    # # 209設備斷線成員設定檔 & 路徑
+    # file_path_209 = os.path.join('./Member_info', 'device_disconnect_209.json')
+    #
+    # table = device_disconnect()
+    # with open(file_path_209, 'r', encoding='utf-8') as file:
+    #     data = json.load(file)
+    #     member_dict = data['Member']
+    #
+    #     for member in member_dict:
+    #         mem = member_dict[member]
+    #         html_table = build_html_table(table)
+    #         if html_table == 'empty':
+    #             continue
+    #         else:
+    #             sendMail(mem["name"], mem["mail"], "209設備斷線警報", "209設備斷線報表", html_table)
+    member_list = device_disconnect_member()
+    table = device_disconnect_SQLMI()
 
-    # 209設備斷線成員設定檔 & 路徑
-    file_path_209 = os.path.join('./Member_info', 'device_disconnect_209.json')
-
-    table = device_disconnect()
-    with open(file_path_209, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-        member_dict = data['Member']
-
-        for member in member_dict:
-            mem = member_dict[member]
-            html_table = build_html_table(table)
-            if html_table == 'empty':
-                continue
-            else:
-                sendMail(mem["name"], mem["mail"], "209設備斷線警報", "209設備斷線報表", html_table)
+    # 迴圈處理每一位成員的資料
+    for _, mem in member_list.iterrows():
+        # 建立要傳遞的 HTML 表格內容
+        html_table = build_html_table(table)
+        if html_table == 'empty':
+            continue
+        else:
+            sendMail(mem["name"], mem["email"], "209設備斷線警報", "209設備斷線報表", html_table)
 
 
 # 0830、1915 空調未關警報
