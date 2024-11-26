@@ -12,10 +12,13 @@ from Model.data_save2excel import data_save2excel
 from Model.df_dealing import df_dealing, build_html_table
 from Model.send_mail import mail_setting
 from Model import alarm_Power_DM, alarm_EV_CO2, alarm_AC_Err, alarm_device_Run, alarm_Water_TFV
-from DB.DB_API import device_disconnect, AC_unclosed_alarm, getAlertList
+from DB.DB_API import AC_unclosed_alarm, getAlertList
 
 # 永曜設備斷線警報
 from DB.DB_API import device_disconnect_member, device_disconnect_SQLMI
+
+# 棄用套件
+# from DB.DB_API import device_disconnect
 
 # 設定基本的日誌配置
 logging.basicConfig(level=logging.DEBUG,
@@ -67,7 +70,7 @@ def run_alert_WOWprime():
     excel_file_path = os.path.join(os.getcwd(), "data", f'{part_fileName}.xlsx')
 
     if not os.path.isfile(excel_file_path):
-        data_save2excel(file_path, part_fileName)
+        data_save2excel(part_fileName)
 
     with open(file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
@@ -85,26 +88,8 @@ def run_alert_WOWprime():
                 logger.info("{} Mail已發送".format(mem["name"]))
 
 
-# 209設備斷線主程式
+# 永曜設備斷線主程式
 def run_device_disconnect():
-    # config = configparser.ConfigParser()
-    # config.read('.config/config')
-    #
-    # # 209設備斷線成員設定檔 & 路徑
-    # file_path_209 = os.path.join('./Member_info', 'device_disconnect_209.json')
-    #
-    # table = device_disconnect()
-    # with open(file_path_209, 'r', encoding='utf-8') as file:
-    #     data = json.load(file)
-    #     member_dict = data['Member']
-    #
-    #     for member in member_dict:
-    #         mem = member_dict[member]
-    #         html_table = build_html_table(table)
-    #         if html_table == 'empty':
-    #             continue
-    #         else:
-    #             sendMail(mem["name"], mem["mail"], "209設備斷線警報", "209設備斷線報表", html_table)
     member_list = device_disconnect_member()
     table = device_disconnect_SQLMI()
 
@@ -118,7 +103,7 @@ def run_device_disconnect():
             sendMail(mem["name"], mem["email"], "209設備斷線警報", "209設備斷線報表", html_table)
 
 
-# 0830、1915 空調未關警報
+# 華南資料庫 0830、1915 空調未關警報
 def run_AC_unclosed_alarm(sendTime):
     member_dict = {'永曜雲端科技有限公司': 'contact@iess.com.tw',
                    'Annie': 'annie@iess.com.tw',
@@ -309,27 +294,27 @@ def run_alarm_AC_Err():
 if __name__ == '__main__':
     # function
     if len(sys.argv) == 2:
-        if sys.argv[1] == 'alert_WOWprime':
+        if sys.argv[1] == 'alert_WOWprime':                 # 王品冷櫃警報
             run_alert_WOWprime()
-        elif sys.argv[1] == 'device_disconnect':
+        elif sys.argv[1] == 'device_disconnect':            # 永曜設備斷線警報
             run_device_disconnect()
-        elif sys.argv[1] == 'AC_unclosed_0830':
+        elif sys.argv[1] == 'AC_unclosed_0830':             # 華南資料庫 0830 空調未關警報
             run_AC_unclosed_alarm('0830')
-        elif sys.argv[1] == 'AC_unclosed_1915':
+        elif sys.argv[1] == 'AC_unclosed_1915':             # 華南資料庫 1915 空調未關警報
             run_AC_unclosed_alarm('1915')
-        elif sys.argv[1] == 'UpdateAlertTable':
+        elif sys.argv[1] == 'UpdateAlertTable':             # 空調未關警報查詢
             getAlertList()
-        elif sys.argv[1] == 'alarm_Power_DM':
+        elif sys.argv[1] == 'alarm_Power_DM':               # 需量(DM)警報
             run_alarm_Power_DM()
-        elif sys.argv[1] == 'alarm_EV_CO2':
+        elif sys.argv[1] == 'alarm_EV_CO2':                 # CO2 濃度警報
             run_alarm_EV_CO2()
-        elif sys.argv[1] == 'alarm_Water_TFV':
+        elif sys.argv[1] == 'alarm_Water_TFV':              # 累積水流量警報
             run_alarm_Water_TFV()
-        elif sys.argv[1] == 'alarm_device_Run_saveFile':
+        elif sys.argv[1] == 'alarm_device_Run_saveFile':    # 設備運作警報(存EXCEL)
             run_alarm_device_Run_saveFile()
-        elif sys.argv[1] == 'alarm_device_Run_sendEMail':
+        elif sys.argv[1] == 'alarm_device_Run_sendEMail':   # 設備運作警報(發送郵件)
             run_alarm_device_Run_sendEMail()
-        elif sys.argv[1] == 'alarm_AC_Err':
+        elif sys.argv[1] == 'alarm_AC_Err':                 # 空調異常警報
             run_alarm_AC_Err()
         else:
             print(f"Unknown function: {sys.argv[1]}")
@@ -337,4 +322,4 @@ if __name__ == '__main__':
         print("Usage: python script.py <function_name>")
 
     # ------測試區------
-    # run_alarm_device_Run()
+    run_alert_WOWprime()

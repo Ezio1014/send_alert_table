@@ -3,6 +3,7 @@ import json
 import requests
 import pandas as pd
 from datetime import datetime
+from DB.DB_API import insert_alarm_DeviceRun
 
 
 def save2excel():
@@ -81,6 +82,19 @@ def save2excel():
     # 將排序後的資料保存為 Excel 檔案
     df_sorted.to_excel(file_path, index=False)
     print(f"檔案已保存到: {file_path}")
+
+    try:
+        # 寫入資料庫
+        df_filtered = df_sorted[df_sorted['運作狀態'] != 'NONE']  # 過濾掉運作狀態為 'NONE' 的資料
+        insert_alarm_DeviceRun(df_filtered)
+    except KeyError as e:
+        print(f"資料處理時發生錯誤：欄位缺失 - {e}")
+    except Exception as e:
+        print(f"寫入資料庫時發生錯誤：{e}")
+
+
+def save2SQL_MI():
+    pass
 
 
 def filter_data_by_store(store, excel_file_path):

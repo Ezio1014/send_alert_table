@@ -1,12 +1,11 @@
 import os
 import pandas as pd
-import json
 from datetime import datetime, time
 from DB import DB_API
 import pymysql
 
 # 創建 DB 實例
-db = DB_API.DB_209()
+# db = DB_API.DB_209()  # (209版，不使用了)
 db_SQL_MI = DB_API.DB_SQL_MI()
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -103,7 +102,7 @@ def save_results_to_excel(units_NO, units, storesID, storesName, devices, temp_t
             combined_df.to_excel(writer, index=False, sheet_name='異常設備列表', na_rep='NULL')  # 將合併後的 DataFrame 寫入工作表
 
 
-def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
+def run(numbers, names, storeID, storeName, date, brand_name, siteID, alarmType):
 
     # 儲存結果的列表
     units_NO = []        # 事業處編號
@@ -136,11 +135,6 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
             combined_df['receiveTime'] = pd.to_datetime(combined_df['receiveTime'])
             # 呼叫函式找尋連續的 True 頭尾並計算時間差
             continual_true_intervals = find_continual_true(combined_df)
-            # print('------')
-            # print(combined_df)
-            # print('------')
-            # print(continual_true_intervals)
-            # print('------')
 
             deviceName = ''
             for interval in continual_true_intervals:
@@ -157,13 +151,13 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
                 # DB_SQL_MI 從結果中提取最小溫度值
                 min_temperatures = DB_API.min_temperatures_SQLMI(numbers[i], start_time, end_time)
 
-                print(f"事業處：{brand}，店別：{storeName}，設備編號：{names[i]}，"
+                print(f"事業處：{brand_name}，店別：{storeName}，設備編號：{names[i]}，"
                       f"異常時間：{start_time.strftime('%H:%M:%S')} 至 {end_time.strftime('%H:%M:%S')}，"
                       f"持續時間：{time_diff:.2f}小時，區間最低溫：{min_temperatures}")
 
                 # 將當前設備的結果加入總結果列表
                 units_NO.append(f"{siteID}")
-                units.append(f"{brand}")
+                units.append(f"{brand_name}")
                 stores_ID.append(f"{storeID}")
                 stores_name.append(f"{storeName}")
                 devices.append(f"{names[i]}")
@@ -190,16 +184,28 @@ def run(numbers, names, storeID, storeName, date, brand, siteID, alarmType):
                           durations, min_temp, excel_path, date)  # 新增的函式呼叫
 
 
-def get_Devices_Data(parent, date, brand):
-    parent_sql = f'SELECT id, name FROM [ems_information].[dbo].[sites] WHERE parent = {parent} order by parent;'
-    siteID_result = db_SQL_MI.sql_connect(parent_sql)
+def get_Devices_Data(date):
+    brand_sql = '''SELECT a.id , a.name, a.brand , a.corp, b.bname 
+                   FROM [ems_information].[dbo].[sites] a 
+                   LEFT JOIN [ems_information].[dbo].[sites_brand] b on a.brand = b.id
+                   WHERE brand in (SELECT id 
+                                   FROM [ems_information].[dbo].[sites_brand] 
+                                   WHERE corp in (2,3))
+                   AND a.enable = 1
+                   AND b.enable = 1;'''
 
-    df_sites = pd.DataFrame(siteID_result, columns=["id", "name"])  # 將查詢結果轉換為 DataFrame
-    site_ids = df_sites["id"].tolist()  # 提取 id
-    site_names = df_sites["name"].tolist()  # 提取 name
+    siteID_result = db_SQL_MI.sql_connect(brand_sql)
+    df_sites = pd.DataFrame(siteID_result, columns=["id", "name", "brand", "bname"])  # 將查詢結果轉換為 DataFrame
+    site_ids = df_sites["id"].tolist()  # 提取門市編號
+    site_names = df_sites["name"].tolist()  # 提取門市名稱
+    brand_ids = df_sites["brand"].tolist()  # 提取門市所屬品牌編號
+    brand_names = df_sites["bname"].tolist()  # 提取門市所屬品牌名稱
 
     for n in range(len(site_ids)):
-        device_sql = f'SELECT id, name, alarm_type FROM [ems_information].[dbo].[devices] WHERE siteID = {site_ids[n]};'
+        device_sql = f'''SELECT id, name, alarm_type 
+                         FROM [ems_information].[dbo].[devices] 
+                         WHERE siteID = {site_ids[n]}
+                         AND enable = 1;'''
         deviceID_result = db_SQL_MI.sql_connect(device_sql)
         df_device = pd.DataFrame(deviceID_result, columns=["id", "name", "alarm_type"])  # 將查詢結果轉換為 DataFrame
         df_device = df_device[df_device['name'].notna() & df_device['name'].str.strip().ne('')]
@@ -209,31 +215,19 @@ def get_Devices_Data(parent, date, brand):
         device_alarmType = df_device["alarm_type"].tolist()  # 初始化 device_alarmType 變數
 
         print(f'店鋪ID：{site_ids[n]}\n店鋪名稱：{site_names[n]}\n設備ID：{device_ids}\n設備名稱：{device_names}')
-        run(device_ids, device_names, site_ids[n], site_names[n], date, brand, parent, device_alarmType)
+        run(device_ids, device_names, site_ids[n], site_names[n], date, brand_names[n], brand_ids[n], device_alarmType)
 
 
 # 主程式
-def data_save2excel(path, date):
+def data_save2excel(date):
     # Basic Setting
-
-    with open(path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-        brand_dict = data['Brand']
-        print(brand_dict)
-
-    # 執行
-    for brand in list(brand_dict.keys()):
-        get_Devices_Data(brand_dict[brand], date, brand)
+    get_Devices_Data(date)
 
 
 # ----------測試區----------
 if __name__ == '__main__':
-    # from datetime import timedelta
-    # 測試用PATH
-    # chose_date = str((datetime.now().date()) - timedelta(days=0))
-    # excel_path = os.path.join(os.getcwd(), "../data")
-    # log_path = os.path.join(os.getcwd(), "../log")
-    # json_path = os.path.join('../Member_info', 'WOWprime.json')
-    # data_save2excel(json_path, chose_date)
+    # d = str(datetime.now().date())
+    # print(d)
+    # get_Devices_Data(d)
 
     pass

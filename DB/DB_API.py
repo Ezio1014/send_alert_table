@@ -1,5 +1,4 @@
 import os
-import pymysql
 import pyodbc
 import configparser
 import pandas as pd
@@ -62,37 +61,6 @@ def setup_loggers(log_folder='Log', log_files=None):
 
 # 初始化日志記錄器
 log = setup_loggers()
-
-
-# 建立MySQL連接
-class DB_209:
-    # 建構式
-    def __init__(self):
-        config = configparser.ConfigParser()
-        configPATH = './.config/config' if os.path.isfile('./.config/config') else '../.config/config'
-        config.read(configPATH)
-
-        self.config = {
-            'host': config.get('DB_209', 'host'),
-            'port': int(config.get('DB_209', 'port')),
-            'user': config.get('DB_209', 'user'),
-            'password': config.get('DB_209', 'password'),
-            'charset': config.get('DB_209', 'charset'),
-            'database': config.get('DB_209', 'database')
-        }
-
-    def sql_connect(self, sql):
-        with pymysql.connect(
-                host=self.config['host'],
-                port=self.config['port'],
-                user=self.config['user'],
-                password=self.config['password'],
-                database=self.config['database']
-        ) as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(sql)
-                data = cursor.fetchall()
-                return data
 
 
 # 建立MSSQL連接(pyodbc)
@@ -217,7 +185,9 @@ class DB_SQL_MI:
                        SERVER={self.config['server']};
                        DATABASE={self.config['database']};
                        UID={self.config['username']};
-                       PWD={self.config['password']}"""
+                       PWD={self.config['password']};
+                       TrustServerCertificate=yes;
+                    """
 
         df = pd.DataFrame()  # 設置初始值
         try:
@@ -230,74 +200,85 @@ class DB_SQL_MI:
             print(f"Error: {e}")
         return df
 
+    def insert(self, table_name, columns, values):
+        """
+        通用插入功能
+        :param table_name: 資料表名稱
+        :param columns: 欄位名稱（list）
+        :param values: 插入的值（list of tuples）
+        """
+        conn_str = f"""DRIVER={self.config['driver']};
+                       SERVER={self.config['server']};
+                       DATABASE={self.config['database']};
+                       UID={self.config['username']};
+                       PWD={self.config['password']};
+                       TrustServerCertificate=yes;"""
 
-#  王品設備異常 1:冷凍 2:解凍 3:冷藏 (209版，不使用了)
-def alarm_sql_query(table_name, title, devices_type, date):
-    formula = '0'
-    Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
-    # 設備條件
-    if devices_type == 1:  # 冷凍冰箱
-        formula = f"{Probe1_string} > -18"
-    elif devices_type == 2:  # 解凍冰箱
-        formula = f"{Probe1_string} > -5"
-    elif devices_type == 3:  # 冷藏冰箱
-        formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
+        connection = None
+        cursor = None  # 確保變數在 finally 區塊中可被引用
 
-    insert_query = ""
-    for i in range(1, 14):
-        query = f""" OR (receiveTime BETWEEN DATE_SUB('{date} 03:00:00', INTERVAL {i} DAY)
-                             AND DATE_SUB('{date} 09:00:00', INTERVAL {i} DAY))"""
-        insert_query += query
+        try:
+            connection = pyodbc.connect(conn_str)
+            cursor = connection.cursor()
 
-    sql_query = f"""
-                SELECT receiveTime,
-                       IFNULL(MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END), NULL) AS `{title}`,
-                       CASE WHEN {formula} THEN 'True' ELSE 'False' END AS Compare
-                FROM ems_data.`{table_name}`
-                WHERE receiveTime between '{date} 03:00:00' and '{date} 09:00:00' {insert_query}
-                GROUP BY receiveTime
-                HAVING MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) IS NOT NULL;
-                """
-    # print(sql_query)
-    data = DB_209().sql_connect(sql_query)
-    columns = ['receiveTime', title, 'Compare']
+            # 動態構建 INSERT 語句
+            placeholders = ", ".join(["?" for _ in columns])
+            column_names = ", ".join(columns)
+            insert_query = f"INSERT INTO {table_name} ({column_names}) VALUES ({placeholders})"
 
-    df = pd.DataFrame(data, columns=columns)
-    df = df.replace('', pd.NA)  # 將空字符串轉換為 NaN
+            # 批量插入
+            cursor.executemany(insert_query, values)
+            connection.commit()
 
-    return df
+            print(f"資料成功插入表 {table_name}")
 
+        except pyodbc.Error as e:
+            print(f"插入失敗：{e}")
 
-def min_temperatures(devicesID, startTime, endTime):
-    min_temp_sql_query = f'''SELECT MIN(CASE WHEN NAME = 'Probe1' THEN VALUE END) AS Min_Probe1
-                             FROM ems_data.`{devicesID}`
-                             WHERE receiveTime BETWEEN '{startTime}' AND '{endTime}' AND NAME = 'Probe1';
-                         '''
-    min_temperatures_result = DB_209().sql_connect(min_temp_sql_query)
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
 
-    # return 最小溫度值
-    return min_temperatures_result[0][0]
+    def update(self, table_name, updates, condition):
+        """
+        通用更新功能
+        :param table_name: 資料表名稱
+        :param updates: 欄位更新字典 {column: value}
+        :param condition: 更新條件 (string)
+        """
+        conn_str = f"""DRIVER={self.config['driver']};
+                       SERVER={self.config['server']};
+                       DATABASE={self.config['database']};
+                       UID={self.config['username']};
+                       PWD={self.config['password']};
+                       TrustServerCertificate=yes;"""
 
+        connection = None
+        cursor = None  # 確保變數在 finally 區塊中可被引用
 
-#  209客戶S800設備斷線
-def device_disconnect():
-    disconnect_sql_query = f'''SELECT a.id ,d.name, b.name, a.name, c.receiveTime, 
-                                      ROUND(TIMESTAMPDIFF(SECOND, c.receiveTime, NOW()) / 60, 0)
-                               FROM ems_information.devices a
-                               LEFT JOIN ems_information.sites b on a.siteID = b.id
-                               LEFT JOIN ems_information.status c on a.id = c.deviceID
-                               LEFT JOIN ems_information.sites d on b.parent = d.id
-                               WHERE a.enable = 1 
-                               AND b.id not in (2,3,4,6) 
-                               AND b.parent <> 0 
-                               AND c.receiveTime < DATE_SUB(NOW(), INTERVAL 1 HOUR);'''
-    data = DB_209().sql_connect(disconnect_sql_query)
+        try:
+            connection = pyodbc.connect(conn_str)
+            cursor = connection.cursor()
 
-    columns = ['設備編號', '公司', '分店', '設備名稱', '最後一筆資料時間', '已經斷線(分鐘)']
-    df = pd.DataFrame(data, columns=columns)
-    df = df.replace('', pd.NA)  # 將空字符串轉換為 NaN
+            # 動態構建 UPDATE 語句
+            set_clause = ", ".join([f"{col} = ?" for col in updates.keys()])
+            update_query = f"UPDATE {table_name} SET {set_clause} WHERE {condition}"
 
-    return df
+            cursor.execute(update_query, list(updates.values()))
+            connection.commit()
+
+            print(f"資料成功更新表 {table_name}")
+
+        except pyodbc.Error as e:
+            print(f"更新失敗：{e}")
+
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
 
 
 #  王品設備異常 1:冷凍 2:解凍 3:冷藏 (SQL_MI版)
@@ -317,6 +298,7 @@ def alarm_sql_query_SQLMI(table_name, deviceName, devices_type, date):
     elif devices_type == 3:  # 冷藏冰箱
         formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
 
+    # 設備數據天數(14天)
     insert_query = ""
     for i in range(1, 14):
         query = f""" OR (receiveTime BETWEEN DATEADD(DAY, -{i}, '{date} 03:00:00') 
@@ -645,7 +627,23 @@ def alarm_DeviceRun():
                    INNER JOIN [ems_information].[dbo].[sites] b ON a.siteID = b.id
                    WHERE a.enable = 1
                    """
+def insert_alarm_DeviceRun(df):
+    """
+    將 DataFrame 中的資料插入 alarm_devices_log 表
+    :param df: 過濾後的 DataFrame
+    """
+    db = DB_SQL_MI()
 
+    # 構建插入的欄位和值
+    table_name = "alarm_devices_log"
+    columns = ["siteID", "localDeviceID", "alarmDate", "alarmType"]
+    values = [
+        (row['門市編號'], row['設備編號'], None, 'run')  # None 表示使用 SQL 的 GETDATE()
+        for _, row in df.iterrows()
+    ]
+
+    # 調用通用 insert 方法
+    db.insert(table_name, columns, values)
 
 # 空調異常警報
 def alarm_AC_Err():
@@ -696,7 +694,7 @@ def test():
     pass
 
 
-# ----------測試區----------
+#  ----------測試區----------
 if __name__ == '__main__':
     # pass
     a = device_disconnect_member()
