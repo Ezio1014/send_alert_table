@@ -636,9 +636,9 @@ def insert_alarm_DeviceRun(df):
 
     # 構建插入的欄位和值
     table_name = "alarm_devices_log"
-    columns = ["siteID", "localDeviceID", "alarmDate", "alarmType"]
+    columns = ["siteID", "localDeviceID", "alarmType"]
     values = [
-        (row['門市編號'], row['設備編號'], None, 'run')  # None 表示使用 SQL 的 GETDATE()
+        (row['門市編號'], row['設備編號'], 'run')  # None 表示使用 SQL 的 GETDATE()
         for _, row in df.iterrows()
     ]
 
