@@ -627,6 +627,8 @@ def alarm_DeviceRun():
                    INNER JOIN [ems_information].[dbo].[sites] b ON a.siteID = b.id
                    WHERE a.enable = 1
                    """
+
+
 def insert_alarm_DeviceRun(df):
     """
     將 DataFrame 中的資料插入 alarm_devices_log 表
@@ -644,6 +646,7 @@ def insert_alarm_DeviceRun(df):
 
     # 調用通用 insert 方法
     db.insert(table_name, columns, values)
+
 
 # 空調異常警報
 def alarm_AC_Err():
