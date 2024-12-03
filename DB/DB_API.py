@@ -175,7 +175,8 @@ class DB_SQL_MI:
             'username': config.get('DB_SQL_MI', 'username'),
             'password': config.get('DB_SQL_MI', 'password'),
             'driver': config.get('DB_SQL_MI', 'driver'),
-            'database': config.get('DB_SQL_MI', 'db_history')
+            'db_history': config.get('DB_SQL_MI', 'db_history'),
+            'db_info': config.get('DB_SQL_MI', 'db_info')
         }
 
     def sql_connect(self, sql):
@@ -183,7 +184,7 @@ class DB_SQL_MI:
         # 建立連接字串
         conn_str = f"""DRIVER={self.config['driver']};
                        SERVER={self.config['server']};
-                       DATABASE={self.config['database']};
+                       DATABASE={self.config['db_history']};
                        UID={self.config['username']};
                        PWD={self.config['password']};
                        TrustServerCertificate=yes;
@@ -209,7 +210,7 @@ class DB_SQL_MI:
         """
         conn_str = f"""DRIVER={self.config['driver']};
                        SERVER={self.config['server']};
-                       DATABASE={self.config['database']};
+                       DATABASE={self.config['db_info']};
                        UID={self.config['username']};
                        PWD={self.config['password']};
                        TrustServerCertificate=yes;"""
@@ -250,7 +251,7 @@ class DB_SQL_MI:
         """
         conn_str = f"""DRIVER={self.config['driver']};
                        SERVER={self.config['server']};
-                       DATABASE={self.config['database']};
+                       DATABASE={self.config['db_info']};
                        UID={self.config['username']};
                        PWD={self.config['password']};
                        TrustServerCertificate=yes;"""
@@ -518,6 +519,24 @@ def alarm_DM():
             log['alarm_DM_log'].error(f"Error querying deviceID {deviceID} with alarm_value {alarm_value}: {str(e)}")
             log['alarm_DM_log'].handlers[0].flush()  # 確保日誌寫入到文件
 
+    # 將 DataFrame 中的資料插入 alarm_EV_log 表
+    db = DB_SQL_MI()
+
+    # 清洗 device_list，移除數值為 "NONE" 的資料
+    device_list_cleaned = device_list[device_list['數值'].notnull()]
+
+    # 構建插入的欄位和值
+    table_name = "alarm_Power_log"
+    columns = ["siteID", "DeviceID", "alarmDate", "alarmType", "value", "notifyID"]
+    values = [
+        (row['門市編號'], row['設備編號'], row['觸發時間'], 'DM', row['數值'], 8)
+        for _, row in device_list_cleaned.iterrows()
+    ]
+
+    if values:
+        # 調用通用 insert 方法
+        db.insert(table_name, columns, values)
+
     return device_list
 
 
@@ -561,6 +580,24 @@ def alarm_CO2():
             # 使用 alarm_DM_log 的日誌記錄錯誤
             log['alarm_EV_CO2'].error(f"Error querying deviceID {deviceID} with alarm_value {alarm_value}: {str(e)}")
             log['alarm_EV_CO2'].handlers[0].flush()  # 確保日誌寫入到文件
+
+    # 將 DataFrame 中的資料插入 alarm_EV_log 表
+    db = DB_SQL_MI()
+
+    # 清洗 device_list，移除數值為 "NONE" 的資料
+    device_list_cleaned = device_list[device_list['數值'].notnull()]
+
+    # 構建插入的欄位和值
+    table_name = "alarm_EV_log"
+    columns = ["siteID", "DeviceID", "alarmDate", "alarmType", "value", "notifyID"]
+    values = [
+        (row['門市編號'], row['設備編號'], row['觸發時間'], 'CO2', row['數值'], 6)
+        for _, row in device_list_cleaned.iterrows()
+    ]
+
+    if values:
+        # 調用通用 insert 方法
+        db.insert(table_name, columns, values)
 
     return device_list
 
@@ -630,17 +667,14 @@ def alarm_DeviceRun():
 
 
 def insert_alarm_DeviceRun(df):
-    """
-    將 DataFrame 中的資料插入 alarm_devices_log 表
-    :param df: 過濾後的 DataFrame
-    """
+    # 將 DataFrame 中的資料插入 alarm_devices_log 表
     db = DB_SQL_MI()
 
     # 構建插入的欄位和值
     table_name = "alarm_devices_log"
-    columns = ["siteID", "localDeviceID", "alarmType"]
+    columns = ["siteID", "localDeviceID", "alarmType", "notifyID"]
     values = [
-        (row['門市編號'], row['設備編號'], 'run')  # None 表示使用 SQL 的 GETDATE()
+        (row['門市編號'], row['設備編號'], 'run', 2)  # alarmDate 使用 SQL 的 GETDATE()
         for _, row in df.iterrows()
     ]
 
@@ -699,7 +733,6 @@ def test():
 
 #  ----------測試區----------
 if __name__ == '__main__':
-    # pass
-    a = device_disconnect_member()
-    print(a)
+    pass
+    # alarm_DM()
     # getAlertList()
