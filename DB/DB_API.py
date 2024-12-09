@@ -282,7 +282,8 @@ class DB_SQL_MI:
                 connection.close()
 
 
-#  王品設備異常 1:冷凍 2:解凍 3:冷藏 (SQL_MI版)
+#  王品設備異常警報(SQL_MI版)
+#  警報查詢語法 1:冷凍 2:解凍 3:冷藏
 def alarm_sql_query_SQLMI(table_name, deviceName, devices_type, date):
     # 如果 devices_type 為 0，直接返回空的 DataFrame
     if devices_type == 0:
@@ -338,6 +339,77 @@ def min_temperatures_SQLMI(devicesID, startTime, endTime):
 
     # return 最小溫度值
     return min_temperatures_result.iloc[0]['Min_Probe1']
+
+
+# 王品工程部
+def member_EN():
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+                    FROM [ems_information].[dbo].[alarm_permission] a
+                    LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
+                    WHERE b.corpID in (2,3,4)
+                    AND b.enable = 1
+                    AND a.TC_WOW_EN = 1;
+                 '''
+    member_info = DB_SQL_MI().sql_connect(sql_query)
+
+    return member_info
+
+
+# 王品食安部
+def member_FS():
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+                    FROM [ems_information].[dbo].[alarm_permission] a
+                    LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
+                    WHERE b.corpID in (2,3,4)
+                    AND b.enable = 1
+                    AND a.TC_WOW_FS = 1;
+                 '''
+    member_info = DB_SQL_MI().sql_connect(sql_query)
+
+    return member_info
+
+
+# 王品區經理
+def member_MA():
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+                    FROM [ems_information].[dbo].[alarm_permission] a
+                    LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
+                    WHERE b.corpID in (2,3,4)
+                    AND b.enable = 1
+                    AND a.TC_WOW_MA = 1;
+                 '''
+    member_info = DB_SQL_MI().sql_connect(sql_query)
+
+    return member_info
+
+
+# 王品門市
+def member_Store():
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.TC_WOW_sites
+                    FROM[ems_information].[dbo].[alarm_permission] a
+                    LEFT JOIN[ems_information].[dbo].[member_info] b ON a.memberID = b.id
+                    WHERE b.corpID in (2, 3, 4) 
+                    AND b.enable = 1
+                    AND a.TC_WOW_sites <> ''
+                    AND(a.TC_WOW_EN = 0 and a.TC_WOW_FS = 0 and a.TC_WOW_MA = 0);
+                 '''
+    member_info = DB_SQL_MI().sql_connect(sql_query)
+
+    return member_info
+
+
+# 王品 SA(目前僅有IESS)
+def member_SA():
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+                    FROM [ems_information].[dbo].[alarm_permission] a
+                    LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
+                    WHERE b.corpID = 4 
+                    AND b.enable = 1
+                    AND a.memberID in (1,2);
+                 '''
+    member_info = DB_SQL_MI().sql_connect(sql_query)
+
+    return member_info
 
 
 #  209客戶S800設備斷線

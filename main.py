@@ -14,6 +14,9 @@ from Model.send_mail import mail_setting
 from Model import alarm_Power_DM, alarm_EV_CO2, alarm_AC_Err, alarm_device_Run, alarm_Water_TFV
 from DB.DB_API import AC_unclosed_alarm, getAlertList
 
+# 王品客製化警報
+from DB.DB_API import member_EN, member_FS, member_MA, member_Store, member_SA
+
 # 永曜設備斷線警報
 from DB.DB_API import device_disconnect_member, device_disconnect_SQLMI
 
@@ -67,25 +70,66 @@ def run_alert_WOWprime():
     # 王品警報成員設定檔 & 路徑
     # file_path = os.path.join('./Member_info', 'WOWprime.json')     # 正式設定檔
     file_path = os.path.join('./Member_info', 'test_sample.json')  # 測試設定檔
+
     excel_file_path = os.path.join(os.getcwd(), "data", f'{part_fileName}.xlsx')
 
-    if not os.path.isfile(excel_file_path):
-        data_save2excel(part_fileName)
+    # if not os.path.isfile(excel_file_path):
+    #     data_save2excel(part_fileName)
 
-    with open(file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-        member_dict = data['Member']
+    # with open(file_path, 'r', encoding='utf-8') as file:
+    #     data = json.load(file)
+    #     member_dict = data['Member']
+    #
+    #     for member in member_dict:
+    #         mem = member_dict[member]
+    #         html_table = df_dealing(mem['dep_NO'], mem['store'])
+    #         dep_name = mem['name']
+    #         if html_table == 'empty':
+    #             print(f'dep_name：{dep_name} is empty')
+    #             continue
+    #         else:
+    #             sendMail(mem["name"], mem["mail"], "王品/群品 冷櫃溫度異常發信", "冷櫃溫度異常報表", html_table)
+    #             logger.info("{} Mail已發送".format(mem["name"]))
 
-        for member in member_dict:
-            mem = member_dict[member]
-            html_table = df_dealing(mem['dep_NO'], mem['store'])
-            dep_name = mem['name']
-            if html_table == 'empty':
-                print(f'dep_name：{dep_name} is empty')
+    def main_sendEmail(df, store=None):
+        for index, row in df.iterrows():
+            dep_name = row["name"]
+            email = row["email"]
+            if store == 'ALL' or store == '冷藏':
+                html_table = df_dealing(str(dep_NO), store)
+            else:
+                try:
+                    tc_wow_sites = row["TC_WOW_sites"]  # 取出 TC_WOW_sites 的值
+                    store_data = json.loads(tc_wow_sites)  # 將字串轉換為字典
+                    store_list = store_data.get("store", [])  # 提取 store 鍵的值，默認為空列表
+                    html_table = df_dealing(str(dep_NO), store_list)
+                except json.JSONDecodeError:
+                    print(f"無效的 store 格式: {store}")
+                    continue
+
+            if html_table == "empty":
+                print(f"dep_name：{dep_name} is empty")
                 continue
             else:
-                sendMail(mem["name"], mem["mail"], "王品/群品 冷櫃溫度異常發信", "冷櫃溫度異常報表", html_table)
-                logger.info("{} Mail已發送".format(mem["name"]))
+                sendMail(dep_name, email, "王品/群品 冷櫃溫度異常發信", "冷櫃溫度異常報表", html_table)
+                logger.info("{} Mail已發送".format(dep_name))
+
+    for dep_NO in range(5):
+        if dep_NO == 0:
+            member_info = member_SA()
+            main_sendEmail(member_info, 'ALL')
+        elif dep_NO == 1:
+            member_info = member_EN()
+            main_sendEmail(member_info, 'ALL')
+        elif dep_NO == 2:
+            member_info = member_FS()
+            main_sendEmail(member_info, '冷藏')
+        elif dep_NO == 3:
+            member_info = member_MA()
+            main_sendEmail(member_info)
+        elif dep_NO == 4:
+            member_info = member_Store()
+            main_sendEmail(member_info)
 
 
 # 永曜設備斷線主程式
@@ -294,27 +338,27 @@ def run_alarm_AC_Err():
 if __name__ == '__main__':
     # function
     if len(sys.argv) == 2:
-        if sys.argv[1] == 'alert_WOWprime':                 # 王品冷櫃警報
+        if sys.argv[1] == 'alert_WOWprime':  # 王品冷櫃警報
             run_alert_WOWprime()
-        elif sys.argv[1] == 'device_disconnect':            # 永曜設備斷線警報
+        elif sys.argv[1] == 'device_disconnect':  # 永曜設備斷線警報
             run_device_disconnect()
-        elif sys.argv[1] == 'AC_unclosed_0830':             # 華南資料庫 0830 空調未關警報
+        elif sys.argv[1] == 'AC_unclosed_0830':  # 華南資料庫 0830 空調未關警報
             run_AC_unclosed_alarm('0830')
-        elif sys.argv[1] == 'AC_unclosed_1915':             # 華南資料庫 1915 空調未關警報
+        elif sys.argv[1] == 'AC_unclosed_1915':  # 華南資料庫 1915 空調未關警報
             run_AC_unclosed_alarm('1915')
-        elif sys.argv[1] == 'UpdateAlertTable':             # 空調未關警報查詢
+        elif sys.argv[1] == 'UpdateAlertTable':  # 空調未關警報查詢
             getAlertList()
-        elif sys.argv[1] == 'alarm_Power_DM':               # 需量(DM)警報
+        elif sys.argv[1] == 'alarm_Power_DM':  # 需量(DM)警報
             run_alarm_Power_DM()
-        elif sys.argv[1] == 'alarm_EV_CO2':                 # CO2 濃度警報
+        elif sys.argv[1] == 'alarm_EV_CO2':  # CO2 濃度警報
             run_alarm_EV_CO2()
-        elif sys.argv[1] == 'alarm_Water_TFV':              # 累積水流量警報
+        elif sys.argv[1] == 'alarm_Water_TFV':  # 累積水流量警報
             run_alarm_Water_TFV()
-        elif sys.argv[1] == 'alarm_device_Run_saveFile':    # 設備運作警報(存EXCEL)
+        elif sys.argv[1] == 'alarm_device_Run_saveFile':  # 設備運作警報(存EXCEL)
             run_alarm_device_Run_saveFile()
-        elif sys.argv[1] == 'alarm_device_Run_sendEMail':   # 設備運作警報(發送郵件)
+        elif sys.argv[1] == 'alarm_device_Run_sendEMail':  # 設備運作警報(發送郵件)
             run_alarm_device_Run_sendEMail()
-        elif sys.argv[1] == 'alarm_AC_Err':                 # 空調異常警報
+        elif sys.argv[1] == 'alarm_AC_Err':  # 空調異常警報
             run_alarm_AC_Err()
         else:
             print(f"Unknown function: {sys.argv[1]}")
@@ -322,4 +366,4 @@ if __name__ == '__main__':
         print("Usage: python script.py <function_name>")
 
     # ------測試區------
-    # run_alert_WOWprime()
+    run_alert_WOWprime()
