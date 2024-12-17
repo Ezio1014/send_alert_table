@@ -36,9 +36,9 @@ logger = logging.getLogger(__name__)
 
 #  ------共用 Function--------------------------------------------------------------------------------------------------
 # 發送郵件(姓名、地址、內容、郵件類型)
-def sendMail(name, addr, msg_Subject, table_Subject, mail_content):
+def sendMail(name, addr, msg_Subject, dialogue, table_Subject, mail_content, attachment):
     Mail = mail_setting()
-    Mail.send_mail(name, addr, msg_Subject, table_Subject, mail_content)
+    Mail.send_mail(name, addr, msg_Subject, dialogue, table_Subject, mail_content, attachment)
 
 
 #  --------------------------------------------------------------------------------------------------------------------
@@ -65,33 +65,9 @@ def run_alert_WOWprime():
     # config import，目前獲取當日資料 days=0
     config = configparser.ConfigParser()
     config.read('.config/config')
-    part_fileName = str((datetime.now().date()) - timedelta(days=int(config.get('fileDate', 'days'))))
+    today = str((datetime.now().date()) - timedelta(days=int(config.get('fileDate', 'days'))))
 
-    # 王品警報成員設定檔 & 路徑
-    # file_path = os.path.join('./Member_info', 'WOWprime.json')     # 正式設定檔
-    file_path = os.path.join('./Member_info', 'test_sample.json')  # 測試設定檔
-
-    excel_file_path = os.path.join(os.getcwd(), "data", f'{part_fileName}.xlsx')
-
-    # if not os.path.isfile(excel_file_path):
-    #     data_save2excel(part_fileName)
-
-    # with open(file_path, 'r', encoding='utf-8') as file:
-    #     data = json.load(file)
-    #     member_dict = data['Member']
-    #
-    #     for member in member_dict:
-    #         mem = member_dict[member]
-    #         html_table = df_dealing(mem['dep_NO'], mem['store'])
-    #         dep_name = mem['name']
-    #         if html_table == 'empty':
-    #             print(f'dep_name：{dep_name} is empty')
-    #             continue
-    #         else:
-    #             sendMail(mem["name"], mem["mail"], "王品/群品 冷櫃溫度異常發信", "冷櫃溫度異常報表", html_table)
-    #             logger.info("{} Mail已發送".format(mem["name"]))
-
-    def main_sendEmail(df, store=None):
+    def main_sendEmail(df, attachment, dialogue, store=None):
         for index, row in df.iterrows():
             dep_name = row["name"]
             email = row["email"]
@@ -111,25 +87,28 @@ def run_alert_WOWprime():
                 print(f"dep_name：{dep_name} is empty")
                 continue
             else:
-                sendMail(dep_name, email, "王品/群品 冷櫃溫度異常發信", "冷櫃溫度異常報表", html_table)
+                sendMail(dep_name, email, "王品/群品 冷櫃溫度異常發信", dialogue, "冷櫃溫度異常報表", html_table, attachment)
                 logger.info("{} Mail已發送".format(dep_name))
+
+    data_save2excel(today)  # 執行異常設備數據查詢
 
     for dep_NO in range(5):
         if dep_NO == 0:
             member_info = member_SA()
-            main_sendEmail(member_info, 'ALL')
+            main_sendEmail(member_info, 0, '', 'ALL')
         elif dep_NO == 1:
             member_info = member_EN()
-            main_sendEmail(member_info, 'ALL')
+            main_sendEmail(member_info, 0, '', 'ALL')
         elif dep_NO == 2:
             member_info = member_FS()
-            main_sendEmail(member_info, '冷藏')
+            main_sendEmail(member_info, 0, '', '冷藏')
         elif dep_NO == 3:
             member_info = member_MA()
-            main_sendEmail(member_info)
+            main_sendEmail(member_info, 1, '<h3>您轄區門店今日異常設備清單入下，請協助確認門店改善進度，謝謝~</h3>')
         elif dep_NO == 4:
             member_info = member_Store()
-            main_sendEmail(member_info)
+            main_sendEmail(member_info, 1, '<h3>今日異常設備清單如下，請先依附件學習卡進行初步異常排除</h3>'
+                                           '<h3>如果隔天還是有異常，請使用就修中心進行報修，謝謝~</h3>')
 
 
 # 永曜設備斷線主程式
@@ -144,7 +123,7 @@ def run_device_disconnect():
         if html_table == 'empty':
             continue
         else:
-            sendMail(mem["name"], mem["email"], "209設備斷線警報", "209設備斷線報表", html_table)
+            sendMail(mem["name"], mem["email"], "209設備斷線警報", '', "209設備斷線報表", html_table, 0)
 
 
 # 華南資料庫 0830、1915 空調未關警報
@@ -158,12 +137,12 @@ def run_AC_unclosed_alarm(sendTime):
         df = AC_unclosed_alarm('0830')
         html_table = build_html_table(df)
         for name, addr in member_dict.items():
-            sendMail(name, addr, "IESS空調未關警報(0830)", "空調未關報表", html_table)
+            sendMail(name, addr, "IESS空調未關警報(0830)", '', "空調未關報表", html_table, 0)
     elif sendTime == '1915':
         df = AC_unclosed_alarm('1900')
         html_table = build_html_table(df)
         for name, addr in member_dict.items():
-            sendMail(name, addr, "IESS空調未關警報(1915)", "空調未關報表", html_table)
+            sendMail(name, addr, "IESS空調未關警報(1915)", '', "空調未關報表", html_table, 0)
 
 
 #  ------星巴克警報------
@@ -195,7 +174,7 @@ def run_alarm_Power_DM():
             continue
 
         html_table = build_html_table(result_df)  # 有結果時生成HTML表格
-        sendMail(name, mail, "用電需量警報", "用電需量(DM)超過設定標準報表", html_table)  # 發送郵件
+        sendMail(name, mail, "用電需量警報", '', "用電需量(DM)超過設定標準報表", html_table, 0)  # 發送郵件
 
         # # 打印篩選結果
         # print(f"篩選結果 - {member_info['name']}:")
@@ -231,7 +210,7 @@ def run_alarm_EV_CO2():
             continue
 
         html_table = build_html_table(result_df)  # 有結果時生成HTML表格
-        sendMail(name, mail, "CO2濃度超標警報", "CO2濃度超標報表", html_table)  # 發送郵件
+        sendMail(name, mail, "CO2濃度超標警報", '', "CO2濃度超標報表", html_table, 0)  # 發送郵件
 
 
 # ---累積水流量警報---
@@ -262,7 +241,7 @@ def run_alarm_Water_TFV():
             continue
 
         html_table = build_html_table(result_df)  # 有結果時生成HTML表格
-        sendMail(name, mail, "水流量數值未變化警報", "水流量數值報表", html_table)  # 發送郵件
+        sendMail(name, mail, "水流量數值未變化警報", '', "水流量數值報表", html_table, 0)  # 發送郵件
 
 
 # ---設備運作警報---
@@ -300,7 +279,7 @@ def run_alarm_device_Run_sendEMail():
             continue
 
         html_table = build_html_table(result_df)  # 有結果時生成HTML表格
-        sendMail(name, mail, "設備未關警報", "設備未關報表", html_table)  # 發送郵件
+        sendMail(name, mail, "設備未關警報", '', "設備未關報表", html_table, 0)  # 發送郵件
 
 
 # ---空調異常警報---
@@ -331,7 +310,7 @@ def run_alarm_AC_Err():
             continue
 
         html_table = build_html_table(result_df)  # 有結果時生成HTML表格
-        sendMail(name, mail, "空調設備異常故障警報", "空調設備異常故障報表", html_table)  # 發送郵件
+        sendMail(name, mail, "空調設備異常故障警報", '', "空調設備異常故障報表", html_table, 0)  # 發送郵件
 
 
 #  --------------------------------------------------------------------------------------------------------------------

@@ -1,5 +1,7 @@
 import os
 import pyodbc
+from sqlalchemy import create_engine
+from urllib.parse import quote_plus
 import configparser
 import pandas as pd
 from datetime import datetime, timedelta
@@ -176,30 +178,48 @@ class DB_SQL_MI:
             'password': config.get('DB_SQL_MI', 'password'),
             'driver': config.get('DB_SQL_MI', 'driver'),
             'db_history': config.get('DB_SQL_MI', 'db_history'),
-            'db_info': config.get('DB_SQL_MI', 'db_info')
+            'db_info': config.get('DB_SQL_MI', 'db_info'),
+            'host': config.get('DB_SQL_MI', 'server_host'),
+            'port': config.get('DB_SQL_MI', 'server_port')
+
         }
 
     def sql_connect(self, sql):
         # 使用pyodbc連接，需安裝odbc驅動
         # 建立連接字串
-        conn_str = f"""DRIVER={self.config['driver']};
-                       SERVER={self.config['server']};
-                       DATABASE={self.config['db_history']};
-                       UID={self.config['username']};
-                       PWD={self.config['password']};
-                       TrustServerCertificate=yes;
-                    """
+        # conn_str = f"""DRIVER={self.config['driver']};
+        #                SERVER={self.config['server']};
+        #                DATABASE={self.config['db_history']};
+        #                UID={self.config['username']};
+        #                PWD={self.config['password']};
+        #                TrustServerCertificate=yes;
+        #             """
+        # self.host = host
+        # self.port = port
+        # self.database = database
+        # self.username = quote_plus(username)
+        # self.password = quote_plus(password)
+        # self.driver = driver
+        # self.connection_string = (
+        #     f"mssql+pyodbc://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}?driver={self.driver}"
 
-        df = pd.DataFrame()  # 設置初始值
+        connection_string = (
+            f"mssql+pyodbc://{quote_plus(self.config['username'])}:{quote_plus(self.config['password'])}@"
+            f"{self.config['host']}:{self.config['port']}/{self.config['db_history']}?"
+            "driver=ODBC+Driver+17+for+SQL+Server"
+        )
+        engine = create_engine(connection_string)
+
+        # df = pd.DataFrame()  # 設置初始值
         try:
-            connection = pyodbc.connect(conn_str)  # 建立連接
-            df = pd.read_sql(sql, connection)
+            # connection = pyodbc.connect(conn_str)  # 建立連接
+            # df = pd.read_sql(sql, connection)
+            # connection.close()  # 關閉連接
 
-            connection.close()  # 關閉連接
-
+            df = pd.read_sql(sql, engine)  # 使用 SQLAlchemy engine 讀取資料
+            return df
         except Exception as e:
             print(f"Error: {e}")
-        return df
 
     def insert(self, table_name, columns, values):
         """
@@ -282,7 +302,31 @@ class DB_SQL_MI:
                 connection.close()
 
 
-#  王品設備異常警報(SQL_MI版)
+#  ---王品設備異常警報(SQL_MI版)---
+#  取得門市資料
+def get_store_info():
+    brand_sql = '''SELECT a.id , a.name, a.brand , a.corp, b.bname 
+                    FROM [ems_information].[dbo].[sites] a 
+                    LEFT JOIN [ems_information].[dbo].[sites_brand] b on a.brand = b.id
+                    WHERE brand in (SELECT id 
+                                    FROM [ems_information].[dbo].[sites_brand] 
+                                    WHERE corp in (2,3))
+                    AND a.enable = 1
+                    AND b.enable = 1;'''
+    data = DB_SQL_MI().sql_connect(brand_sql)
+    return data
+
+
+#  取得門市設備資料
+def get_devices_info(siteID):
+    device_sql = f'''SELECT id, name, alarm_type 
+                     FROM [ems_information].[dbo].[devices] 
+                     WHERE siteID = {siteID}
+                     AND enable = 1;'''
+    data = DB_SQL_MI().sql_connect(device_sql)
+    return data
+
+
 #  警報查詢語法 1:冷凍 2:解凍 3:冷藏
 def alarm_sql_query_SQLMI(table_name, deviceName, devices_type, date):
     # 如果 devices_type 為 0，直接返回空的 DataFrame
@@ -328,11 +372,67 @@ def alarm_sql_query_SQLMI(table_name, deviceName, devices_type, date):
     return df
 
 
+# 優化中
+def alarm_sql_query_SQLMI_Test(deviceID, deviceName, devices_type, date):
+    # 如果 devices_type 為 0，直接返回空的 DataFrame
+    if devices_type == 0:
+        columns = ['receiveTime', deviceName, 'Compare']
+        return pd.DataFrame(columns=columns)  # 返回一個空的 DataFrame
+
+    formula = '0 = 1'
+    Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
+    # 設備條件
+    if devices_type == 1:  # 冷凍冰箱
+        formula = f"{Probe1_string} > -18"
+    elif devices_type == 2:  # 解凍冰箱
+        formula = f"{Probe1_string} > -5"
+    elif devices_type == 3:  # 冷藏冰箱
+        formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
+
+    # 設備數據天數(1天)
+    sql_query = f"""
+                SELECT receiveTime,
+                       ISNULL(MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END), NULL) AS '{deviceName}',
+                       CASE WHEN {formula} THEN 'True' ELSE 'False' END AS Compare
+                FROM [ems_data].[dbo].[{deviceID}] WITH (NOLOCK)
+                WHERE receiveTime between '{date} 03:00:00' and '{date} 09:00:00' 
+                GROUP BY receiveTime
+                HAVING MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) IS NOT NULL
+                ORDER BY receiveTime;
+                """
+    # print(sql_query)
+
+    data = DB_SQL_MI().sql_connect(sql_query)
+    columns = ['receiveTime', deviceName, 'Compare']
+
+    df = pd.DataFrame(data, columns=columns)
+    df = df.replace('', pd.NA)  # 將空字串轉換為 NaN
+
+    return df
+
+
+# 當日凌晨 3-9 時，設備最低溫
 def min_temperatures_SQLMI(devicesID, startTime, endTime):
     min_temp_sql_query = f'''SELECT MIN(CASE WHEN NAME = 'Probe1' THEN VALUE END) AS Min_Probe1
                              FROM [ems_data].[dbo].[{devicesID}] WITH (NOLOCK) 
                              WHERE receiveTime BETWEEN '{startTime}' AND '{endTime}' AND NAME = 'Probe1';
                          '''
+
+    min_temperatures_result = DB_SQL_MI().sql_connect(min_temp_sql_query)
+    # print(min_temperatures_result)
+
+    # return 最小溫度值
+    return min_temperatures_result.iloc[0]['Min_Probe1']
+
+
+# 前日凌晨 3-12 時，設備最低溫
+def min_temperatures_SQLMI_yesterday(devicesID, startTime, endTime):
+    min_temp_sql_query = f'''SELECT MIN(CASE WHEN NAME = 'Probe1' THEN VALUE END) AS Min_Probe1
+                                 FROM [ems_data].[dbo].[{devicesID}] WITH (NOLOCK) 
+                                 WHERE receiveTime BETWEEN DATEADD(DAY, -1,'{startTime}') 
+                                                   AND DATEADD(DAY, -1,'{endTime}') 
+                                 AND NAME = 'Probe1';
+                             '''
 
     min_temperatures_result = DB_SQL_MI().sql_connect(min_temp_sql_query)
     # print(min_temperatures_result)
@@ -412,7 +512,7 @@ def member_SA():
     return member_info
 
 
-#  209客戶S800設備斷線
+#  ---永曜資料庫客戶S800設備斷線---
 def device_disconnect_member():
     sql_query = f'''SELECT a.name, a.email
                     FROM [ems_information].[dbo].[member_info] a
@@ -444,7 +544,7 @@ def device_disconnect_SQLMI():
     return df
 
 
-#  空調未關警報查詢/更新(DB_31)
+#  ---空調未關警報查詢/更新(DB_31)---
 def getAlertList():
     # 更新/新增 alert 資料表內容
     def AlertEventUpdate(AlertContent):
@@ -551,7 +651,7 @@ def AC_unclosed_alarm(selectTime):
     return df
 
 
-# 需量(DM)警報
+# ---需量(DM)警報---
 def alarm_DM():
     search_query = """
                    SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '警報值'
@@ -612,7 +712,7 @@ def alarm_DM():
     return device_list
 
 
-# CO2 濃度警報
+# ---CO2 濃度警報---
 def alarm_CO2():
     search_query = """
                    SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '警報值'
@@ -674,7 +774,7 @@ def alarm_CO2():
     return device_list
 
 
-# 累積水流量警報
+# ---累積水流量警報---
 def alarm_TFV():
     search_query = """
                    SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '警報值'
@@ -728,7 +828,7 @@ def alarm_TFV():
     return device_list
 
 
-# 設備運作警報
+# ---設備運作警報---
 def alarm_DeviceRun():
     search_query = """
                    SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '營業結束時間'
@@ -754,7 +854,7 @@ def insert_alarm_DeviceRun(df):
     db.insert(table_name, columns, values)
 
 
-# 空調異常警報
+# ---空調異常警報---
 def alarm_AC_Err():
     search_query = """
                    SELECT a.siteID AS '門市編號', b.name AS '門市名稱', a.deviceID AS '設備編號', a.alarm_value AS '警報值'
