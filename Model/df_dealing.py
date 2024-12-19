@@ -47,7 +47,7 @@ def df_dealing(dep_number, store=None):
     # 連續14天異常傳送
     elif dep_number == "1":
         continual_date = continual_date(14)
-        tb = df[(df['店編'].isin(store)) & (df['判定日期'].isin(continual_date))]
+        tb = df[df['判定日期'].isin(continual_date)]
         sites_list = tb['店編'].unique().tolist()
 
         for site in sites_list:
