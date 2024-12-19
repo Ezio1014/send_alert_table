@@ -95,13 +95,13 @@ def run_alert_WOWprime():
     for dep_NO in range(5):
         if dep_NO == 0:
             member_info = member_SA()
-            main_sendEmail(member_info, 0, '', 'ALL')
+            main_sendEmail(member_info, 0, '<h3>資訊部</h3>', 'ALL')
         elif dep_NO == 1:
             member_info = member_EN()
-            main_sendEmail(member_info, 0, '', 'ALL')
+            main_sendEmail(member_info, 0, '<h3>工程部</h3>', 'ALL')
         elif dep_NO == 2:
             member_info = member_FS()
-            main_sendEmail(member_info, 0, '', '冷藏')
+            main_sendEmail(member_info, 0, '<h3>食安部</h3>', '冷藏')
         elif dep_NO == 3:
             member_info = member_MA()
             main_sendEmail(member_info, 1, '<h3>您轄區門店今日異常設備清單入下，請協助確認門店改善進度，謝謝~</h3>')

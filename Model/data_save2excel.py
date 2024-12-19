@@ -267,7 +267,7 @@ def data_save2excel(date):
     with pd.ExcelWriter(full_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
         df.to_excel(writer, index=False, sheet_name='異常設備列表', na_rep='NULL')
 
-    # 執行異常設備查詢
+    # -執行異常設備查詢-
     get_Devices_Data(date)
 
     # 累積天數計算
