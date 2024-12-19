@@ -345,4 +345,4 @@ if __name__ == '__main__':
         print("Usage: python script.py <function_name>")
 
     # ------測試區------
-    run_alert_WOWprime()
+    # run_alert_WOWprime()
