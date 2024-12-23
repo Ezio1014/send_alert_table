@@ -3,7 +3,7 @@ import os
 import sys
 import json
 import time
-import configparser
+# import configparser
 import logging
 from datetime import datetime, timedelta
 
@@ -61,11 +61,12 @@ def timer_decorator(func):
 #  ------程式區---------------------------------------------------------------------------------------------------------
 # 王品警報主程式
 @timer_decorator
-def run_alert_WOWprime():
-    # config import，目前獲取當日資料 days=0
-    config = configparser.ConfigParser()
-    config.read('.config/config')
-    today = str((datetime.now().date()) - timedelta(days=int(config.get('fileDate', 'days'))))
+def run_alert_WOWprime(fileDate=None):
+    # 獲取當日資料 fileDate=0
+    if fileDate is not None and isinstance(fileDate, int):
+        today = str((datetime.now().date()) - timedelta(days=fileDate))
+    else:
+        today = str((datetime.now().date()))
 
     def main_sendEmail(df, attachment, dialogue, store=None):
         for index, row in df.iterrows():

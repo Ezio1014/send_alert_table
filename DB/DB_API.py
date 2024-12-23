@@ -446,7 +446,7 @@ def member_EN():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3,4)
+                    WHERE b.corpID in (2,3)
                     AND b.enable = 1
                     AND a.TC_WOW_EN = 1;
                  '''
@@ -460,7 +460,7 @@ def member_FS():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3,4)
+                    WHERE b.corpID in (2,3)
                     AND b.enable = 1
                     AND a.TC_WOW_FS = 1;
                  '''
@@ -474,7 +474,7 @@ def member_MA():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3,4)
+                    WHERE b.corpID in (2,3)
                     AND b.enable = 1
                     AND a.TC_WOW_MA = 1;
                  '''
@@ -488,7 +488,7 @@ def member_Store():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.TC_WOW_sites
                     FROM[ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN[ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2, 3, 4) 
+                    WHERE b.corpID in (2,3) 
                     AND b.enable = 1
                     AND a.TC_WOW_sites <> ''
                     AND(a.TC_WOW_EN = 0 and a.TC_WOW_FS = 0 and a.TC_WOW_MA = 0);
@@ -504,8 +504,7 @@ def member_SA():
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
                     WHERE b.corpID = 4 
-                    AND b.enable = 1
-                    AND a.memberID in (1,2);
+                    AND b.enable = 1;
                  '''
     member_info = DB_SQL_MI().sql_connect(sql_query)
 
