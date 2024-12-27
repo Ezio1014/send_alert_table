@@ -186,23 +186,6 @@ class DB_SQL_MI:
 
     def sql_connect(self, sql):
         # 使用pyodbc連接，需安裝odbc驅動
-        # 建立連接字串
-        # conn_str = f"""DRIVER={self.config['driver']};
-        #                SERVER={self.config['server']};
-        #                DATABASE={self.config['db_history']};
-        #                UID={self.config['username']};
-        #                PWD={self.config['password']};
-        #                TrustServerCertificate=yes;
-        #             """
-        # self.host = host
-        # self.port = port
-        # self.database = database
-        # self.username = quote_plus(username)
-        # self.password = quote_plus(password)
-        # self.driver = driver
-        # self.connection_string = (
-        #     f"mssql+pyodbc://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}?driver={self.driver}"
-
         connection_string = (
             f"mssql+pyodbc://{quote_plus(self.config['username'])}:{quote_plus(self.config['password'])}@"
             f"{self.config['host']}:{self.config['port']}/{self.config['db_history']}?"
@@ -212,10 +195,6 @@ class DB_SQL_MI:
 
         # df = pd.DataFrame()  # 設置初始值
         try:
-            # connection = pyodbc.connect(conn_str)  # 建立連接
-            # df = pd.read_sql(sql, connection)
-            # connection.close()  # 關閉連接
-
             df = pd.read_sql(sql, engine)  # 使用 SQLAlchemy engine 讀取資料
             return df
         except Exception as e:
@@ -312,7 +291,8 @@ def get_store_info():
                                     FROM [ems_information].[dbo].[sites_brand] 
                                     WHERE corp in (2,3))
                     AND a.enable = 1
-                    AND b.enable = 1;'''
+                    AND b.enable = 1;
+                    '''
     data = DB_SQL_MI().sql_connect(brand_sql)
     return data
 
@@ -411,33 +391,29 @@ def alarm_sql_query_SQLMI_Test(deviceID, deviceName, devices_type, date):
     return df
 
 
-# 當日凌晨 3-9 時，設備最低溫
-def min_temperatures_SQLMI(devicesID, startTime, endTime):
+# 設備最低溫
+def min_temperatures_SQLMI(devicesID, startTime, endTime, mode=None):
     min_temp_sql_query = f'''SELECT MIN(CASE WHEN NAME = 'Probe1' THEN VALUE END) AS Min_Probe1
                              FROM [ems_data].[dbo].[{devicesID}] WITH (NOLOCK) 
-                             WHERE receiveTime BETWEEN '{startTime}' AND '{endTime}' AND NAME = 'Probe1';
-                         '''
+                             WHERE NAME = 'Probe1' AND receiveTime BETWEEN 
+                          '''
+    # 前日凌晨 3-12 時
+    if mode == 'yesterday_0912':
+        min_temp_sql_query += f"""
+                               DATEADD(DAY, -1, CONVERT(DATETIME, CONCAT(CONVERT(DATE, '{startTime}'), ' 03:00:00')))
+                               AND DATEADD(DAY, -1, CONVERT(DATETIME, CONCAT(CONVERT(DATE, '{endTime}'), ' 12:00:00')))
+                               """
+    # 當日凌晨 3-9 時
+    elif mode == 'today_0309':
+        min_temp_sql_query += f"""
+                               CONVERT(DATETIME, CONCAT(CONVERT(DATE, '{startTime}'), ' 03:00:00'))
+                               AND CONVERT(DATETIME, CONCAT(CONVERT(DATE, '{endTime}'), ' 09:00:00'))
+                               """
+    # 當日指定區間
+    elif mode is None:
+        min_temp_sql_query += f"'{startTime}' AND '{endTime}';"
 
     min_temperatures_result = DB_SQL_MI().sql_connect(min_temp_sql_query)
-    # print(min_temperatures_result)
-
-    # return 最小溫度值
-    return min_temperatures_result.iloc[0]['Min_Probe1']
-
-
-# 前日凌晨 3-12 時，設備最低溫
-def min_temperatures_SQLMI_yesterday(devicesID, startTime, endTime):
-    min_temp_sql_query = f'''SELECT MIN(CASE WHEN NAME = 'Probe1' THEN VALUE END) AS Min_Probe1
-                                 FROM [ems_data].[dbo].[{devicesID}] WITH (NOLOCK) 
-                                 WHERE receiveTime BETWEEN DATEADD(DAY, -1,'{startTime}') 
-                                                   AND DATEADD(DAY, -1,'{endTime}') 
-                                 AND NAME = 'Probe1';
-                             '''
-
-    min_temperatures_result = DB_SQL_MI().sql_connect(min_temp_sql_query)
-    # print(min_temperatures_result)
-
-    # return 最小溫度值
     return min_temperatures_result.iloc[0]['Min_Probe1']
 
 
@@ -446,7 +422,7 @@ def member_EN():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3)
+                    WHERE b.corpID in (2,3,4)
                     AND b.enable = 1
                     AND a.TC_WOW_EN = 1;
                  '''
@@ -460,7 +436,7 @@ def member_FS():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3)
+                    WHERE b.corpID in (2,3,4)
                     AND b.enable = 1
                     AND a.TC_WOW_FS = 1;
                  '''
@@ -474,9 +450,10 @@ def member_MA():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3)
+                    WHERE b.corpID in (2,3,4)
                     AND b.enable = 1
-                    AND a.TC_WOW_MA = 1;
+                    AND a.TC_WOW_MA = 1
+                    AND a.TC_WOW_sites <> '';
                  '''
     member_info = DB_SQL_MI().sql_connect(sql_query)
 
@@ -488,10 +465,10 @@ def member_Store():
     sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.TC_WOW_sites
                     FROM[ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN[ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3) 
+                    WHERE b.corpID in (2,3,4)
                     AND b.enable = 1
-                    AND a.TC_WOW_sites <> ''
-                    AND(a.TC_WOW_EN = 0 and a.TC_WOW_FS = 0 and a.TC_WOW_MA = 0);
+                    AND a.TC_WOW_MA = 0
+                    AND a.TC_WOW_sites <> '';
                  '''
     member_info = DB_SQL_MI().sql_connect(sql_query)
 

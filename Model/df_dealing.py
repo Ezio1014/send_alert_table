@@ -57,7 +57,7 @@ def df_dealing(dep_number, store=None):
                 device_tb = site_tb[site_tb['設備編號'] == device]
                 days_list = device_tb['判定日期'].unique().tolist()
                 # print(days_list)
-                if len(days_list) < 13:
+                if len(days_list) > 13:
                     df.drop(df[(df['設備編號'] == device) & (df['店編'] == site)].index, inplace=True)
 
         date_today = today_date()
@@ -78,7 +78,7 @@ def df_dealing(dep_number, store=None):
             for device in unique_devices:
                 device_tb = site_tb[site_tb['設備編號'] == device]
                 days_list = device_tb['判定日期'].unique().tolist()
-                if len(days_list) < 6:
+                if len(days_list) > 6:
                     df.drop(tb[(tb['設備編號'] == device) & (tb['店編'] == site)].index, inplace=True)
 
         df_7day = df[(df['店編'].isin(store)) & (df['判定日期'].isin(continual_date))]

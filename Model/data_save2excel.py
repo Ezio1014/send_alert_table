@@ -166,15 +166,16 @@ def run(numbers, names, storeID, storeName, date, brand_name, siteID, alarmType)
                 min_temp.append(f"{min_temperatures}")
 
                 # 行動方案 action 邏輯
-                min_temperatures_yesterday = DB_API.min_temperatures_SQLMI_yesterday(numbers[i], start_time, end_time)
+                min_temp_yd0912 = DB_API.min_temperatures_SQLMI(numbers[i], start_time, end_time, 'yesterday_0912')
+                min_temp_td0309 = DB_API.min_temperatures_SQLMI(numbers[i], start_time, end_time, 'today_0309')
                 if devices_type == 1:  # 冷凍
-                    if min_temperatures_yesterday is None:
+                    if min_temp_yd0912 is None:
                         action.append(f"yesterday temp None")
-                    elif min_temperatures is None:
+                    elif min_temp_td0309 is None:
                         action.append(f"today temp None")
-                    elif int(min_temperatures_yesterday) < -18 and int(min_temperatures) < -18:
+                    elif float(min_temp_yd0912) < -18 and float(min_temp_td0309) < -18:
                         action.append(f"納入年度保養")
-                    elif int(min_temperatures_yesterday) < -18:
+                    elif float(min_temp_yd0912) < -18:
                         action.append(f"測試夜間散熱方案")
                     else:
                         action.append(f"派員檢修")
