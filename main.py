@@ -64,22 +64,24 @@ def timer_decorator(func):
 def run_alert_WOWprime(fileDate=None):
     # 獲取當日資料 fileDate=0
     if fileDate is not None and isinstance(fileDate, int):
-        today = str((datetime.now().date()) - timedelta(days=fileDate))
+        today = datetime.now().date() - timedelta(days=fileDate)
     else:
-        today = str((datetime.now().date()))
+        today = datetime.now().date()
 
     def main_sendEmail(df, attachment, dialogue, store=None):
         for index, row in df.iterrows():
             dep_name = row["name"]
             email = row["email"]
             if store == 'ALL' or store == '冷藏':
-                html_table = df_dealing(str(dep_NO), store)
+                html_table = df_dealing(today, str(dep_NO), store)
+                # print(f'dep_name：{dep_name}, df_dealing({str(dep_NO)}, {store})')
             else:
                 try:
                     tc_wow_sites = row["TC_WOW_sites"]  # 取出 TC_WOW_sites 的值
                     store_data = json.loads(tc_wow_sites)  # 將字串轉換為字典
                     store_list = store_data.get("store", [])  # 提取 store 鍵的值，默認為空列表
-                    html_table = df_dealing(str(dep_NO), store_list)
+                    html_table = df_dealing(today, str(dep_NO), store_list)
+                    # print(f'dep_name：{dep_name}, df_dealing({str(dep_NO)}, {store_list})')
                 except json.JSONDecodeError:
                     print(f"無效的 store 格式: {store}")
                     continue
@@ -91,7 +93,7 @@ def run_alert_WOWprime(fileDate=None):
                 sendMail(dep_name, email, "王品/群品 冷櫃溫度異常發信", dialogue, "冷櫃溫度異常報表", html_table, attachment)
                 logger.info("{} Mail已發送".format(dep_name))
 
-    data_save2excel(today)  # 執行異常設備數據查詢
+    data_save2excel(str(today))  # 執行異常設備數據查詢
 
     for dep_NO in range(5):
         if dep_NO == 0:
@@ -273,6 +275,7 @@ def run_alarm_device_Run_sendEMail():
         result_df = alarm_device_Run.filter_data_by_store(store, excel_file_path)
 
         # 如果 '運作狀態' 欄位是字串 "NONE" 而不是真正的 None，使用以下代碼進行過濾：
+        result_df['運作狀態'] = result_df['運作狀態'].astype(str)
         result_df = result_df[result_df['運作狀態'].str.upper() != 'NONE']
 
         # 如果沒有內容則跳過此迴圈
@@ -346,4 +349,5 @@ if __name__ == '__main__':
         print("Usage: python script.py <function_name>")
 
     # ------測試區------
-    # run_alert_WOWprime()
+    # run_alert_WOWprime(1)
+

@@ -22,17 +22,17 @@ def build_html_table(table):
 
 
 # 王品主程式
-def df_dealing(dep_number, store=None):
+def df_dealing(date, dep_number, store=None):
     # 篩選條件設定
     def today_date():
-        start_date = datetime.strptime(str((datetime.now().date())), '%Y-%m-%d').date()
+        start_date = datetime.strptime(str(date), '%Y-%m-%d').date()
         todayDate = start_date.strftime('%m月%d日').lstrip('0')  # 格式化日期
         return todayDate
 
     def continual_date(days):
         date_list = []
         for i in range(days):
-            start_date = datetime.strptime(str((datetime.now().date() - timedelta(days=i))), '%Y-%m-%d').date()
+            start_date = datetime.strptime(str((date - timedelta(days=i))), '%Y-%m-%d').date()
             Date = start_date.strftime('%m月%d日').lstrip('0')  # 格式化日期
             date_list.append(Date)
         return date_list
@@ -48,20 +48,18 @@ def df_dealing(dep_number, store=None):
     elif dep_number == "1":
         continual_date = continual_date(14)
         tb = df[df['判定日期'].isin(continual_date)]
-        sites_list = tb['店編'].unique().tolist()
 
-        for site in sites_list:
-            site_tb = df[df['店編'] == site]
-            unique_devices = site_tb['設備編號'].unique().tolist()
-            for device in unique_devices:
-                device_tb = site_tb[site_tb['設備編號'] == device]
-                days_list = device_tb['判定日期'].unique().tolist()
-                # print(days_list)
-                if len(days_list) > 13:
-                    df.drop(df[(df['設備編號'] == device) & (df['店編'] == site)].index, inplace=True)
+        unique_devices = tb['DeviceID'].unique().tolist()
+        for device in unique_devices:
+            device_tb = tb[tb['DeviceID'] == device]
+            days_list = device_tb['判定日期'].unique().tolist()
+            # print(days_list)
+            if len(days_list) < 14:
+                # tb.drop(tb[tb['DeviceID'] == device].index, inplace=True)
+                tb = tb.loc[tb['DeviceID'] != device]
 
         date_today = today_date()
-        table = df[(df['判定日期'] == date_today)]
+        table = tb[tb['判定日期'] == date_today]
     # 當天冷藏異常傳送
     elif dep_number == "2":
         date_today = today_date()
@@ -70,20 +68,17 @@ def df_dealing(dep_number, store=None):
     elif dep_number == "3":
         continual_date = continual_date(7)
         tb = df[(df['店編'].isin(store)) & (df['判定日期'].isin(continual_date))]
-        sites_list = tb['店編'].unique().tolist()
 
-        for site in sites_list:
-            site_tb = tb[tb['店編'] == site]
-            unique_devices = site_tb['設備編號'].unique().tolist()
-            for device in unique_devices:
-                device_tb = site_tb[site_tb['設備編號'] == device]
-                days_list = device_tb['判定日期'].unique().tolist()
-                if len(days_list) > 6:
-                    df.drop(tb[(tb['設備編號'] == device) & (tb['店編'] == site)].index, inplace=True)
+        unique_devices = tb['DeviceID'].unique().tolist()
+        for device in unique_devices:
+            device_tb = tb[tb['DeviceID'] == device]
+            days_list = device_tb['判定日期'].unique().tolist()
+            if len(days_list) < 7:
+                # tb.drop(tb[(tb['DeviceID'] == device)].index, inplace=True)
+                tb = tb.loc[tb['DeviceID'] != device]
 
-        df_7day = df[(df['店編'].isin(store)) & (df['判定日期'].isin(continual_date))]
         date_today = today_date()
-        table = df_7day[df_7day['判定日期'] == date_today]
+        table = tb[tb['判定日期'] == date_today]
 
     elif dep_number == "4":  # 當天設備異常傳送(指定門店)
         date_today = today_date()
