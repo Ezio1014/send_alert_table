@@ -292,7 +292,7 @@ def get_store_info():
                                     WHERE corp in (2,3))
                     AND a.enable = 1
                     AND b.enable = 1;
-                    '''
+                '''
     data = DB_SQL_MI().sql_connect(brand_sql)
     return data
 
@@ -305,6 +305,24 @@ def get_devices_info(siteID):
                      AND enable = 1;'''
     data = DB_SQL_MI().sql_connect(device_sql)
     return data
+
+
+#  取得區經理負責門市列表
+def get_alarm_sites(memberID):
+    query = f"""SELECT siteID 
+                FROM [ems_information].[dbo].[sites_alarm_member_WP] 
+                WHERE enable = 1 
+                AND memberID = ;
+            """
+
+    data = DB_SQL_MI().sql_connect(query)
+
+    if not data.empty and 'siteID' in data.columns:
+        sites_list = data['siteID'].tolist()
+    else:
+        sites_list = []  # 如果沒有結果，返回空列表
+
+    return sites_list
 
 
 #  警報查詢語法 1:冷凍 2:解凍 3:冷藏
@@ -419,10 +437,10 @@ def min_temperatures_SQLMI(devicesID, startTime, endTime, mode=None):
 
 # 王品工程部
 def member_EN():
-    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.memberID, a.siteID
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3,4)
+                    WHERE b.corpID in (4)
                     AND b.enable = 1
                     AND a.TC_WOW_EN = 1;
                  '''
@@ -433,10 +451,10 @@ def member_EN():
 
 # 王品食安部
 def member_FS():
-    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.memberID, a.siteID
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3,4)
+                    WHERE b.corpID in (4)
                     AND b.enable = 1
                     AND a.TC_WOW_FS = 1;
                  '''
@@ -447,13 +465,13 @@ def member_FS():
 
 # 王品區經理
 def member_MA():
-    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.memberID, a.siteID
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3,4)
+                    WHERE b.corpID in (4)
                     AND b.enable = 1
                     AND a.TC_WOW_MA = 1
-                    AND a.TC_WOW_sites <> '';
+                    AND a.memberID <> 0;
                  '''
     member_info = DB_SQL_MI().sql_connect(sql_query)
 
@@ -462,13 +480,13 @@ def member_MA():
 
 # 王品門市
 def member_Store():
-    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.TC_WOW_sites
-                    FROM[ems_information].[dbo].[alarm_permission] a
-                    LEFT JOIN[ems_information].[dbo].[member_info] b ON a.memberID = b.id
-                    WHERE b.corpID in (2,3,4)
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.memberID, a.siteID
+                    FROM [ems_information].[dbo].[alarm_permission] a
+                    LEFT JOIN[ems_information].[dbo].[sites] b ON a.siteID = b.id
+                    WHERE b.corp in (4)
                     AND b.enable = 1
                     AND a.TC_WOW_MA = 0
-                    AND a.TC_WOW_sites <> '';
+                    AND a.siteID <> 0;
                  '''
     member_info = DB_SQL_MI().sql_connect(sql_query)
 
@@ -477,7 +495,7 @@ def member_Store():
 
 # 王品 SA(目前僅有IESS)
 def member_SA():
-    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN,a.TC_WOW_FS,a.TC_WOW_MA,a.TC_WOW_sites
+    sql_query = f'''SELECT b.name, b.email, a.TC_WOW_EN, a.TC_WOW_FS, a.TC_WOW_MA, a.memberID, a.siteID
                     FROM [ems_information].[dbo].[alarm_permission] a
                     LEFT JOIN [ems_information].[dbo].[member_info] b ON a.memberID = b.id
                     WHERE b.corpID = 4 
@@ -493,7 +511,8 @@ def device_disconnect_member():
     sql_query = f'''SELECT a.name, a.email
                     FROM [ems_information].[dbo].[member_info] a
                     LEFT JOIN [ems_information].[dbo].[alarm_permission] b on a.id = b.memberID
-                    WHERE a.enable = 1 AND b.dc_disc = 1;'''
+                    WHERE a.enable = 1 AND b.dc_disc = 1;
+                '''
     data = DB_SQL_MI().sql_connect(sql_query)
     return data
 
@@ -510,7 +529,8 @@ def device_disconnect_SQLMI():
                                 AND b.id not in (2,3,4,6) 
                                 AND b.parent <> 0 
                                 AND c.receiveTime < DATEADD(HOUR, -1, GETDATE())
-                               ORDER BY a.siteID, a.id;'''
+                               ORDER BY a.siteID, a.id;
+                            '''
     data = DB_SQL_MI().sql_connect(disconnect_sql_query)
 
     # columns = ['設備編號', '公司', '分店', '設備名稱', '最後一筆資料時間', '已經斷線(分鐘)']
