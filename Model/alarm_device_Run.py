@@ -58,11 +58,10 @@ def save2excel():
         except requests.exceptions.RequestException as e:
             print(f"API 請求失敗，門市: {store_name}, 錯誤: {e}")
 
-    # 將設備列表轉換為 DataFrame
-    df_devices = pd.DataFrame(device_list)
+    df_devices = pd.DataFrame(device_list)  # 將設備列表轉換為 DataFrame
+    df_devices = df_devices[df_devices['設備名稱'] != 'NONE']  # 過濾
 
-    # 按門市編號、設備編號進行排序
-    df_sorted = df_devices.sort_values(by=['門市編號', '設備編號'])
+    df_sorted = df_devices.sort_values(by=['門市編號', '設備編號'])  # 排序
 
     # 獲取當前日期，並生成檔案名稱
     current_date = datetime.now().strftime('%Y-%m-%d')  # 格式化日期為 YYYY-MM-DD

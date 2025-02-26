@@ -95,12 +95,11 @@ def run_alert_WOWprime(fileDate=None):
                 continue
 
             if html_table == "empty":
-                print(f"dep_name：{dep_name} is empty")
+                print(f"收件人：{dep_name} is empty")
                 continue
             else:
                 try:
                     sendMail(dep_name, email, "王品/群品 冷櫃溫度異常發信", dialogue, "冷櫃溫度異常報表", html_table, attachment)
-                    logger.info("{} Mail已發送".format(dep_name))
                 except Exception as e:
                     logger.error("{} Mail發送失敗，未知錯誤：{}".format(dep_name, str(e)))  # 捕捉其他未知錯誤
 

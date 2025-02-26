@@ -310,9 +310,9 @@ def get_devices_info(siteID):
 #  取得區經理負責門市列表
 def get_alarm_sites(memberID):
     query = f"""SELECT siteID 
-                FROM [ems_information].[dbo].[sites_alarm_member_WP] 
+                FROM [ems_information].[dbo].[sites_alarm_member] 
                 WHERE enable = 1 
-                AND memberID = ;
+                AND memberID = {memberID};
             """
 
     data = DB_SQL_MI().sql_connect(query)
@@ -325,49 +325,49 @@ def get_alarm_sites(memberID):
     return sites_list
 
 
-#  警報查詢語法 1:冷凍 2:解凍 3:冷藏
-def alarm_sql_query_SQLMI(table_name, deviceName, devices_type, date):
-    # 如果 devices_type 為 0，直接返回空的 DataFrame
-    if devices_type == 0:
-        columns = ['receiveTime', deviceName, 'Compare']
-        return pd.DataFrame(columns=columns)  # 返回一個空的 DataFrame
-
-    formula = '0 = 1'
-    Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
-    # 設備條件
-    if devices_type == 1:  # 冷凍冰箱
-        formula = f"{Probe1_string} > -18"
-    elif devices_type == 2:  # 解凍冰箱
-        formula = f"{Probe1_string} > -5"
-    elif devices_type == 3:  # 冷藏冰箱
-        formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
-
-    # 設備數據天數(14天)
-    insert_query = ""
-    for i in range(1, 14):
-        query = f""" OR (receiveTime BETWEEN DATEADD(DAY, -{i}, '{date} 03:00:00') 
-                                         AND DATEADD(DAY, -{i}, '{date} 09:00:00'))"""
-        insert_query += query
-
-    sql_query = f"""
-                SELECT receiveTime,
-                       ISNULL(MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END), NULL) AS '{deviceName}',
-                       CASE WHEN {formula} THEN 'True' ELSE 'False' END AS Compare
-                FROM [ems_data].[dbo].[{table_name}] WITH (NOLOCK)
-                WHERE receiveTime between '{date} 03:00:00' and '{date} 09:00:00' {insert_query}
-                GROUP BY receiveTime
-                HAVING MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) IS NOT NULL
-                ORDER BY receiveTime;
-                """
-    # print(sql_query)
-
-    data = DB_SQL_MI().sql_connect(sql_query)
-    columns = ['receiveTime', deviceName, 'Compare']
-
-    df = pd.DataFrame(data, columns=columns)
-    df = df.replace('', pd.NA)  # 將空字符串轉換為 NaN
-
-    return df
+# #  警報查詢語法 1:冷凍 2:解凍 3:冷藏
+# def alarm_sql_query_SQLMI(table_name, deviceName, devices_type, date):
+#     # 如果 devices_type 為 0，直接返回空的 DataFrame
+#     if devices_type == 0:
+#         columns = ['receiveTime', deviceName, 'Compare']
+#         return pd.DataFrame(columns=columns)  # 返回一個空的 DataFrame
+#
+#     formula = '0 = 1'
+#     Probe1_string = "MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END)"
+#     # 設備條件
+#     if devices_type == 1:  # 冷凍冰箱
+#         formula = f"{Probe1_string} > -18"
+#     elif devices_type == 2:  # 解凍冰箱
+#         formula = f"{Probe1_string} > -5"
+#     elif devices_type == 3:  # 冷藏冰箱
+#         formula = f"{Probe1_string} > 7 OR {Probe1_string} < 0"
+#
+#     # 設備數據天數(14天)
+#     insert_query = ""
+#     for i in range(1, 14):
+#         query = f""" OR (receiveTime BETWEEN DATEADD(DAY, -{i}, '{date} 03:00:00')
+#                                          AND DATEADD(DAY, -{i}, '{date} 09:00:00'))"""
+#         insert_query += query
+#
+#     sql_query = f"""
+#                 SELECT receiveTime,
+#                        ISNULL(MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END), NULL) AS '{deviceName}',
+#                        CASE WHEN {formula} THEN 'True' ELSE 'False' END AS Compare
+#                 FROM [ems_data].[dbo].[{table_name}] WITH (NOLOCK)
+#                 WHERE receiveTime between '{date} 03:00:00' and '{date} 09:00:00' {insert_query}
+#                 GROUP BY receiveTime
+#                 HAVING MAX(CASE WHEN NAME = 'Probe1' THEN VALUE END) IS NOT NULL
+#                 ORDER BY receiveTime;
+#                 """
+#     # print(sql_query)
+#
+#     data = DB_SQL_MI().sql_connect(sql_query)
+#     columns = ['receiveTime', deviceName, 'Compare']
+#
+#     df = pd.DataFrame(data, columns=columns)
+#     df = df.replace('', pd.NA)  # 將空字符串轉換為 NaN
+#
+#     return df
 
 
 # 優化中
@@ -544,20 +544,6 @@ def device_disconnect_SQLMI():
 def getAlertList():
     # 更新/新增 alert 資料表內容
     def AlertEventUpdate(AlertContent):
-        # d2_id = Alert['d2_id']
-        # receiveTime = Alert['receiveTime']
-        # Alert_id = Alert['id']
-        #
-        # sql = '''UPDATE IESS_huanan.dbo.alert
-        #          SET time = getdate()
-        #          WHERE device_ID = ?
-        #          AND convert(date, time, 111) = convert(date, \'?\', 111)
-        #          AND datediff(mi, CreateDate, getdate()) < 12 * 60
-        #          AND datediff(mi, time, getdate()) < 30
-        #          IF @@rowcount = 0
-        #          INSERT INTO IESS_huanan.dbo.alert(device_ID, alarm_ID, time, checked, send)
-        #          VALUES(?, ?, getdate(), 0, 0);'''
-
         update_query = '''UPDATE IESS_huanan.dbo.alert
                           SET time = getdate()
                           WHERE device_ID = {d2_id}
@@ -569,18 +555,25 @@ def getAlertList():
                           VALUES({d2_id}, {id}, getdate(), 0, 0);'''.format(**AlertContent)
         DB_31().update_connect(update_query, 'U')
 
-    sql = '''SELECT u1.name u1_name, u2.name u2_name, d1.name d1_name, d2.ID d2_id, 
+    # sql = '''SELECT *
+    #          FROM [IESS_huanan].[dbo].[alarm_config]
+    #          WHERE
+    #              CONVERT(VARCHAR(8), receiveTime, 108)
+    #              BETWEEN timeStart AND timeEnd
+    #          ORDER BY u1_name, u2_name, d1_name;
+    #       '''
+
+    sql = """select u1.name u1_name, u2.name u2_name, d1.name d1_name, d2.ID d2_id, 
              a.id, a.device_ID, a.type, a.timeStart, a.timeEnd, a.valueMax, a.valueMin, at.text, 
              s.receiveTime, s.DM DM, s.AI AI, s.DIO DIO, s.kW KW, s.kWh KWH, s.RA RA 
-             FROM IESS_huanan.dbo.units u1 
-             INNER JOIN IESS_huanan.dbo.units u2 on u1.ID = u2.parent and u1.Enable = 1 and u2.Enable = 1 
-             INNER JOIN IESS_huanan.dbo.devices d1 on u2.ID = d1.unitID and d1.Enable = 1 
-             INNER JOIN IESS_huanan.dbo.devices d2 on d1.ID = d2.parent and d2.Enable = 1 
-             INNER JOIN IESS_huanan.dbo.alarm a on d2.ID = a.device_ID 
-             INNER JOIN IESS_huanan.dbo.alarmText at on a.alarmText_ID = at.id 
-             LEFT JOIN IESS_huanan.dbo.status s on a.device_ID = s.device_ID 
-             WHERE a.funEnable = 1 and a.Enable = 1 and DATEDIFF(mi, s.receiveTime, GETDATE()) <= 2 
-             ORDER BY u1.name, u2.name, d1.name;'''
+             from IESS_huanan.dbo.units u1 inner join IESS_huanan.dbo.units u2 on u1.ID = u2.parent and u1.Enable = 1 and u2.Enable = 1 
+             inner join IESS_huanan.dbo.devices d1 on u2.ID = d1.unitID and d1.Enable = 1 
+             inner join IESS_huanan.dbo.devices d2 on d1.ID = d2.parent and d2.Enable = 1 
+             inner join IESS_huanan.dbo.alarm a on d2.ID = a.device_ID 
+             inner join IESS_huanan.dbo.alarmText at on a.alarmText_ID = at.id 
+             left join IESS_huanan.dbo.status s on a.device_ID = s.device_ID 
+             where a.funEnable = 1 and a.Enable = 1 and DATEDIFF(mi, s.receiveTime, GETDATE()) <= 2 
+             order by u1.name, u2.name, d1.name;"""
 
     data = DB_31().update_connect(sql, 'S')
     for Alert in data:
@@ -601,6 +594,13 @@ def getAlertList():
             if value > valueMax or value < valueMin:
                 AlertEventUpdate(Alert)
 
+        # value = int(Alert[Alert['type'].upper()])
+        # valueMax = int(Alert['valueMax'])
+        # valueMin = int(Alert['valueMin'])
+
+        # if value > valueMax or value < valueMin:
+        #     AlertEventUpdate(Alert)
+
 
 def AC_unclosed_alarm(selectTime):
     time_query = ''
@@ -608,7 +608,7 @@ def AC_unclosed_alarm(selectTime):
         time_query = '''and CONVERT(char(19), a.time, 111) 
                         = CONVERT(char(19), dateadd(day, datediff(day, 1, GETDATE()), 0), 111) '''
     elif selectTime == '1900':
-        time_query = 'and a.time >= dateadd(hour, -2, getdate()) '
+        time_query = 'AND a.time >= dateadd(hour, -2, getdate()) '
 
     # u1.ID in (2, 332) 2：華銀 332：大潤發
     sql_query = f'''SELECT u.company, u.branch, d.device, d.device2,

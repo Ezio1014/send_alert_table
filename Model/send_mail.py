@@ -50,7 +50,7 @@ class mail_setting:
             server.login(self.config["acc_in"], self.config["pwd_in"])
             server.send_message(msg)
             server.close()  # 發送完成後關閉連線
-            print(f"{name}郵件已成功發送。")
+            print(f"{name} 郵件已成功發送。")
         except Exception as e:
             print(f"{name}發送郵件時發生錯誤: {e}")
             raise
